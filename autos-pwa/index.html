@@ -1,0 +1,347 @@
+\
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MaiCars</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#0b0b0d">
+  <style>
+    :root{ --bg:#0b0b0d; --card:#121316; --text:#e9ecef; --muted:#9aa0a6; --accent:#2ee6c5; --accent-2:#17c9ac; --danger:#ff6464; color-scheme:dark }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{ margin:0; font-family:system-ui,-apple-system,"Segoe UI",Roboto; background:var(--bg); color:var(--text); display:grid; grid-template-rows:auto 1fr auto; min-height:100vh }
+
+    .appbar{ position:sticky; top:0; z-index:50; display:flex; align-items:center; justify-content:space-between; padding:12px 16px; background:#0c0e12; border-bottom:1px solid #1e2026 }
+    .brand{ font-weight:900 } .brand span{ color:var(--accent) }
+    .app-actions{ display:flex; gap:10px; align-items:center }
+    .chip{ display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border-radius:999px; font-weight:700; color:#041412; background:var(--accent) }
+
+    .menu-btn{ appearance:none; border:none; background:transparent; color:var(--text); font-weight:700; cursor:pointer }
+    .dropdown{ position:relative }
+    .dropdown-panel{ position:absolute; right:0; top:100%; margin-top:8px; min-width:200px; background:#101216; border:1px solid #23262e; border-radius:12px; box-shadow:0 10px 24px rgba(0,0,0,.35); display:none; padding:8px }
+    .dropdown.open .dropdown-panel{ display:block }
+    .dropdown-panel button{ width:100%; text-align:left; appearance:none; border:none; background:transparent; color:var(--text); padding:10px 12px; border-radius:8px; cursor:pointer }
+    .dropdown-panel button:hover{ background:#12161b }
+
+    main{ padding:12px 16px }
+
+    /* Grids: 2 columnas */
+    .grid{ display:grid; gap:14px }
+    .grid.autos{ grid-template-columns:repeat(2,1fr) }
+    @media (max-width:480px){ .grid.autos{ grid-template-columns:1fr } }
+
+    /* Card con imagen circular */
+    .auto-card{ text-align:center; background:var(--card); border:1px solid #1e2026; border-radius:16px; padding:16px }
+    .thumb{ width:160px; height:160px; border-radius:50%; object-fit:cover; border:2px solid var(--accent); background:#0a0a0a; display:block; margin:6px auto }
+    .thumb-sold{ filter: grayscale(100%) brightness(0.85); }
+    .title{ font-weight:800; margin:8px 0 2px }
+    .muted{ color:var(--muted) }
+    .pill{ display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px; font-size:.85rem; border:1px solid #27313a; background:#0e1216; color:var(--muted) }
+
+    .btn{ appearance:none; border:none; outline:none; cursor:pointer; background:var(--accent); color:#041412; font-weight:700; padding:10px 14px; border-radius:10px; transition:transform .05s ease, background .15s ease }
+    .btn:hover{ background:var(--accent-2) }
+    .btn-outline{ background:transparent; color:var(--accent); border:1px solid var(--accent) }
+    .btn-danger{ background:var(--danger); color:white }
+
+    .card{ background:var(--card); border:1px solid #1e2026; border-radius:14px; padding:14px }
+    .row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap }
+    .stack{ display:grid; gap:8px }
+    input{ width:100%; padding:10px 12px; border-radius:10px; border:1px solid #2a2d34; background:#0e1013; color:var(--text) }
+    .form-row{ display:grid; gap:10px; grid-template-columns:1fr 1fr }
+    .hide{ display:none }
+
+    .table{ width:100%; border-collapse:collapse }
+    .table th,.table td{ border-bottom:1px solid #23262e; padding:10px; text-align:left }
+    .table th{ color:#bfc5cc; font-weight:700 }
+    .right{ text-align:right }
+    footer{ padding:12px 16px; border-top:1px solid #1e2026 }
+    .sold-detail{ margin-top:10px; text-align:left }
+    .detail-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px }
+    @media (max-width:520px){ .detail-grid{ grid-template-columns:1fr } }
+    .detail-item{ background:#0e1216; border:1px solid #23262e; border-radius:8px; padding:10px }
+    .detail-label{ color:#bfc5cc; font-size:.85rem }
+    .detail-value{ font-weight:700 }
+  </style>
+</head>
+<body>
+  <header class="appbar">
+    <div class="brand">Mai<span>Cars</span></div>
+    <div class="app-actions">
+      <span class="chip">PWA</span>
+      <div class="dropdown" id="menu">
+        <button class="menu-btn" id="menuBtn">Menú ▾</button>
+        <div class="dropdown-panel" aria-label="Menú">
+          <button id="m_inventario">Inventario</button>
+          <button id="m_vendidos">Vendidos</button>
+          <button id="m_agregar">Agregar vehículo</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section id="view-form" class="card hide" aria-label="Agregar vehículo">
+      <h2 style="margin-top:0">Nuevo vehículo</h2>
+      <div class="grid">
+        <div class="form-row">
+          <div>
+            <label>Marca</label>
+            <input id="f_marca" type="text" placeholder="Ej: Toyota">
+          </div>
+          <div>
+            <label>Modelo</label>
+            <input id="f_modelo" type="text" placeholder="Ej: Corolla">
+          </div>
+        </div>
+        <div class="form-row">
+          <div>
+            <label>Año</label>
+            <input id="f_anio" type="number" min="1950" max="2099" placeholder="Ej: 2017">
+          </div>
+          <div>
+            <label>Costo de compra</label>
+            <input id="f_compra" type="number" min="0" step="1" placeholder="CLP">
+          </div>
+        </div>
+        <div class="form-row">
+          <div>
+            <label>URL de imagen (opcional)</label>
+            <input id="f_img" type="url" placeholder="https://...">
+          </div>
+          <div>
+            <label>Subir imagen desde el teléfono</label>
+            <input id="f_img_file" type="file" accept="image/*">
+          </div>
+        </div>
+        <div class="row" style="justify-content:flex-end">
+          <button class="btn" id="f_guardar">Guardar</button>
+          <button class="btn btn-outline" id="f_cancelar">Cancelar</button>
+        </div>
+        <p class="muted">Las imágenes subidas se guardan localmente y se guardan en la DB como data URL si eliges subirlas.</p>
+      </div>
+    </section>
+
+    <!-- Inventario -->
+    <section id="view-inventario" class="grid autos" aria-label="Inventario"></section>
+
+    <!-- Detalle inventario -->
+    <section id="view-detalle" class="hide" aria-label="Detalle inventario"></section>
+
+    <!-- Vendidos -->
+    <section id="view-vendidos" class="hide" aria-label="Vendidos"></section>
+  </main>
+
+  <footer>
+    <small class="muted">MaiCars • PWA instalable • Offline básico • Datos en la nube (Netlify DB)</small>
+  </footer>
+
+  <script>
+    const CLP = new Intl.NumberFormat('es-CL',{style:'currency', currency:'CLP', maximumFractionDigits:0});
+    const fmt = (n)=>CLP.format(Number(n||0));
+    const uid = ()=> Math.random().toString(36).slice(2)+Date.now().toString(36);
+    const $ = (sel)=> document.querySelector(sel);
+
+    // Menu
+    const menu = $('#menu');
+    $('#menuBtn').addEventListener('click', ()=> menu.classList.toggle('open'));
+    document.addEventListener('click', (e)=>{ if(!menu.contains(e.target)) menu.classList.remove('open'); });
+    $('#m_inventario').addEventListener('click', ()=>{ show('inventario'); loadInventario(); });
+    $('#m_vendidos').addEventListener('click', ()=>{ show('vendidos'); loadVendidos(); });
+    $('#m_agregar').addEventListener('click', ()=>{ views.form.classList.remove('hide'); show('form'); });
+
+    const views = { form: $('#view-form'), inventario: $('#view-inventario'), detalle: $('#view-detalle'), vendidos: $('#view-vendidos') };
+    function show(viewName){ Object.values(views).forEach(v=>v.classList.add('hide')); views[viewName].classList.remove('hide'); }
+
+    // Helpers imagen
+    function loadImageFromFile(file){ return new Promise((resolve,reject)=>{ const r=new FileReader(); r.onload=()=>resolve(r.result); r.onerror=reject; r.readAsDataURL(file); }); }
+    async function getSelectedImage(){ const fi=$('#f_img_file'), ui=$('#f_img'); if(fi.files && fi.files[0]){ try{ const raw=await loadImageFromFile(fi.files[0]); return raw; }catch(e){ console.warn(e); return null; } } const url=(ui.value||'').trim(); return url || null; }
+
+    async function loadInventario(){
+      try {
+        const res = await fetch('/api/inventario-get');
+        const inv = await res.json();
+        renderInventario(inv);
+      } catch(e){
+        views.inventario.innerHTML = '<div class="card"><p class="muted">Error cargando inventario. ¿Conexión?</p></div>';
+      }
+    }
+
+    function renderInventario(inv){
+      const cont = views.inventario; cont.className='grid autos'; cont.innerHTML='';
+      if(!inv || inv.length===0){ cont.innerHTML = '<div class="card"><p class="muted">No tienes vehículos. Usa “Menú → Agregar”.</p></div>'; return; }
+      inv.forEach(auto=>{
+        const card=document.createElement('article'); card.className='auto-card';
+        const imgSrc=auto.img || PLACEHOLDER_IMG;
+        card.innerHTML = `
+          <img class="thumb" src="${imgSrc}" alt="${auto.marca} ${auto.modelo}">
+          <div class="title">${auto.marca} ${auto.modelo}</div>
+          <div class="muted">Año ${auto.anio}</div>
+          <div class="row" style="justify-content:center; margin-top:10px">
+            <button class="btn btn-outline" data-action="detalle" data-id="${auto.id}">Ver detalle</button>
+            <button class="btn btn-outline" data-action="eliminar" data-id="${auto.id}">Eliminar</button>
+          </div>`;
+        cont.appendChild(card);
+      });
+      cont.querySelectorAll('button[data-action="detalle"]').forEach(b=> b.addEventListener('click', ()=> openDetalle(b.dataset.id)));
+      cont.querySelectorAll('button[data-action="eliminar"]').forEach(b=> b.addEventListener('click', ()=> eliminarInventario(b.dataset.id)));
+    }
+
+    async function eliminarInventario(id){
+      if(!confirm('¿Eliminar este vehículo del inventario?')) return;
+      await fetch('/api/inventario-delete', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id }) });
+      loadInventario();
+    }
+
+    async function openDetalle(id){
+      try{
+        const res = await fetch('/api/inventario-get');
+        const inv = await res.json();
+        const auto = inv.find(a=>a.id===id);
+        if(!auto){ alert('No encontrado'); return; }
+        const gastosRes = await fetch('/api/gastos-get?auto_id='+encodeURIComponent(id));
+        const gastos = await gastosRes.json();
+        const totalGastos = (gastos||[]).reduce((acc,g)=> acc + Number(g.monto||0), 0);
+        views.detalle.innerHTML = `
+          <div class="grid">
+            <div class="card">
+              <div class="row" style="justify-content:space-between">
+                <div><h2 style="margin:0">${auto.marca} ${auto.modelo}</h2><div class="muted">Año ${auto.anio}</div></div>
+                <span class="pill">Inventario</span>
+              </div>
+              <img src="${auto.img||PLACEHOLDER_IMG}" alt="${auto.marca} ${auto.modelo}" style="width:100%;height:220px;object-fit:cover;border-radius:10px;border:1px solid #262a33;background:#0a0a0a"/>
+              <div class="grid" style="margin-top:12px">
+                <div class="form-row">
+                  <div><label>Valor de compra</label><input id="d_compra" type="number" min="0" step="1" value="${(auto.compra ?? '')}" placeholder="CLP"></div>
+                </div>
+                <div class="row"><button class="btn" id="d_guardar_valores">Guardar cambios</button><button class="btn btn-outline" id="d_volver">← Volver</button></div>
+              </div>
+            </div>
+
+            <div class="card">
+              <h3 style="margin-top:0">Gastos</h3>
+              <div class="row" style="justify-content:space-between"><div class="muted">Total gastos: <strong>${fmt(totalGastos)}</strong></div><button class="btn btn-outline" id="d_agregar_gasto">Agregar gasto</button></div>
+              <table class="table" style="margin-top:10px"><thead><tr><th>Nombre</th><th class="right">Monto (CLP)</th><th class="right">Fecha</th></tr></thead><tbody>
+                ${(gastos||[]).map(g=>`<tr><td>${g.nombre}</td><td class="right">${fmt(g.monto)}</td><td class="right">${g.fecha ? new Date(g.fecha).toLocaleDateString('es-CL') : ''}</td></tr>`).join('')}
+              </tbody></table>
+            </div>
+
+            <div class="card">
+              <h3 style="margin-top:0">Acciones</h3>
+              <div class="row" style="gap:8px"><button class="btn btn-danger" id="d_vender">Vender vehículo</button><button class="btn btn-outline" id="d_eliminar">Eliminar del inventario</button></div>
+            </div>
+          </div>`;
+        show('detalle');
+        $('#d_volver').addEventListener('click', ()=>{ show('inventario'); loadInventario(); });
+        $('#d_guardar_valores').addEventListener('click', async ()=>{
+          const compra = Number($('#d_compra').value || 0);
+          await fetch('/api/inventario-update', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id, compra }) });
+          openDetalle(id);
+        });
+        $('#d_agregar_gasto').addEventListener('click', async ()=>{
+          const nombre = prompt('Nombre del gasto:'); if(!nombre) return;
+          const montoStr = prompt('Monto en CLP (solo números):','0'); const monto = Number((montoStr||'').replace(/[^\d]/g,'')); if(!monto || monto<=0){ alert('Monto inválido'); return; }
+          await fetch('/api/gasto-add', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ auto_id:id, nombre, monto, fechaISO: new Date().toISOString() }) });
+          openDetalle(id);
+        });
+        $('#d_eliminar').addEventListener('click', async ()=>{ if(!confirm('¿Eliminar este vehículo?')) return; await fetch('/api/inventario-delete', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id }) }); show('inventario'); loadInventario(); });
+        $('#d_vender').addEventListener('click', async ()=>{
+          if(!auto.compra || auto.compra<=0){ alert('Define el costo de compra antes de vender.'); return; }
+          const ventaStr = prompt('Valor de venta (CLP):','0'); const ventaReal = Number((ventaStr||'').replace(/[^\d]/g,'')); if(!ventaReal || ventaReal<=0){ alert('Valor inválido'); return; }
+          const r = await fetch('/api/vender', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id, venta: ventaReal }) });
+          const data = await r.json(); alert('Vehículo vendido. Ganancia: '+fmt(data.ganancia)); show('vendidos'); loadVendidos();
+        });
+      }catch(e){ alert('Error'); }
+    }
+
+    async function loadVendidos(){
+      try{
+        const res = await fetch('/api/vendidos-list');
+        const payload = await res.json();
+        const vendidos = payload.vendidos || [];
+        const detalleMap = payload.detalle || {};
+        const cont = views.vendidos; cont.className='grid autos'; cont.innerHTML='';
+        if(vendidos.length===0){ cont.innerHTML = '<div class="card"><p class="muted">Aún no registras ventas.</p></div>'; return; }
+        vendidos.forEach(v=>{
+          const card=document.createElement('article'); card.className='auto-card';
+          const imgSrc=v.img || PLACEHOLDER_IMG;
+          const gastosDetalle = detalleMap[v.id] || [];
+          card.innerHTML = `
+            <img class="thumb thumb-sold" src="${imgSrc}" alt="${v.marca} ${v.modelo}">
+            <div class="title">${v.marca} ${v.modelo}</div>
+            <div class="muted">Año ${v.anio}</div>
+            <div class="row" style="justify-content:center; margin-top:10px">
+              <button class="btn btn-outline" data-action="toggle" data-id="${v.id}">Ver venta</button>
+              <button class="btn btn-outline" data-action="eliminar-vendido" data-id="${v.id}">Eliminar</button>
+            </div>
+            <div class="sold-detail hide" id="detail-${v.id}">
+              <div class="detail-grid">
+                <div class="detail-item"><div class="detail-label">Compra</div><div class="detail-value">${fmt(v.compra)}</div></div>
+                <div class="detail-item"><div class="detail-label">Gastos</div><div class="detail-value">${fmt(v.gastos_total)}</div></div>
+                <div class="detail-item"><div class="detail-label">Venta</div><div class="detail-value">${fmt(v.venta)}</div></div>
+                <div class="detail-item"><div class="detail-label">Ganancia</div><div class="detail-value">${fmt(v.ganancia)}</div></div>
+                <div class="detail-item"><div class="detail-label">Fecha</div><div class="detail-value">${new Date(v.fecha_venta).toLocaleDateString('es-CL')}</div></div>
+                <div class="detail-item"><div class="detail-label">ID</div><div class="detail-value">${v.id}</div></div>
+              </div>
+              <div class="card" style="margin-top:10px">
+                <h4 style="margin:0 0 8px 0">Detalle de gastos</h4>
+                ${ (gastosDetalle && gastosDetalle.length>0) ? `
+                  <table class="table">
+                    <thead><tr><th>Nombre</th><th class="right">Monto (CLP)</th><th class="right">Fecha</th></tr></thead>
+                    <tbody>
+                      ${gastosDetalle.map(g=>`
+                        <tr><td>${g.nombre}</td><td class=\"right\">${fmt(g.monto)}</td><td class=\"right\">${g.fecha?new Date(g.fecha).toLocaleDateString('es-CL'):''}</td></tr>
+                      `).join('')}
+                    </tbody>
+                  </table>` : `<p class="muted">Sin gastos registrados.</p>` }
+              </div>
+            </div>`;
+          cont.appendChild(card);
+        });
+        cont.querySelectorAll('button[data-action="toggle"]').forEach(btn=>{
+          btn.addEventListener('click', ()=>{
+            const id=btn.getAttribute('data-id');
+            const panel=document.getElementById('detail-'+id);
+            panel.classList.toggle('hide');
+            btn.textContent = panel.classList.contains('hide') ? 'Ver venta' : 'Ocultar';
+          });
+        });
+        cont.querySelectorAll('button[data-action="eliminar-vendido"]').forEach(btn=>{
+          btn.addEventListener('click', async ()=>{
+            const id=btn.getAttribute('data-id');
+            if(!confirm('¿Eliminar este registro de vendido?')) return;
+            await fetch('/api/vendidos-delete', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id }) });
+            loadVendidos();
+          });
+        });
+      }catch(e){ views.vendidos.innerHTML = '<div class="card"><p class="muted">Error cargando vendidos.</p></div>'; }
+    }
+
+    async function altaVehiculo(){
+      const marca=$('#f_marca').value.trim(); const modelo=$('#f_modelo').value.trim(); const anio=Number($('#f_anio').value); const compra=Number($('#f_compra').value||0);
+      if(!marca||!modelo||!anio){ alert('Marca, modelo y año son obligatorios'); return; }
+      if(!compra||compra<=0){ alert('Debes indicar un costo de compra válido (> 0).'); return; }
+      const img=await getSelectedImage(); const id=uid();
+      await fetch('/api/inventario-add', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id, marca, modelo, anio, compra, img }) });
+      resetForm(); views.form.classList.add('hide'); show('inventario'); loadInventario();
+    }
+
+    function resetForm(){ $('#f_marca').value=''; $('#f_modelo').value=''; $('#f_anio').value=''; $('#f_compra').value=''; $('#f_img').value=''; $('#f_img_file').value=''; }
+    $('#f_cancelar').addEventListener('click', ()=>{ views.form.classList.add('hide'); show('inventario'); });
+    document.getElementById('f_guardar').addEventListener('click', altaVehiculo);
+
+    const PLACEHOLDER_IMG = 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+      <svg xmlns="http://www.w3.org/2000/svg" width="800" height="400">
+        <defs><linearGradient id="g" x1="0" x2="1" y1="0" y2="1"><stop offset="0%" stop-color="#0e1013"/><stop offset="100%" stop-color="#1a1d22"/></linearGradient></defs>
+        <rect width="100%" height="100%" fill="url(#g)"/>
+        <g fill="#2ee6c5" opacity="0.9"><rect x="80" y="200" width="640" height="35" rx="8"/><circle cx="200" cy="260" r="28"/><circle cx="600" cy="260" r="28"/><rect x="160" y="160" width="480" height="40" rx="8"/></g>
+        <text x="50%" y="60%" font-size="22" text-anchor="middle" fill="#9aa0a6" font-family="Segoe UI, Roboto">Imagen no disponible</text>
+      </svg>`);
+
+    // Inicial
+    loadInventario(); show('inventario');
+    if('serviceWorker' in navigator){ window.addEventListener('load', ()=>{ navigator.serviceWorker.register('sw.js').catch(console.warn); }); }
+  </script>
+</body>
+</html>

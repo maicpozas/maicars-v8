@@ -1,0 +1,15 @@
+\
+{
+  "name": "maicars-v8",
+  "private": true,
+  "version": "1.0.0",
+  "description": "MaiCars V8 - PWA con Netlify DB (Neon) + Netlify Functions",
+  "type": "module",
+  "scripts": {
+    "dev": "netlify dev",
+    "deploy": "netlify deploy --prod --dir=autos-pwa --functions=netlify/functions"
+  },
+  "dependencies": {
+    "@netlify/neon": "^0.1.0"
+  }
+}
