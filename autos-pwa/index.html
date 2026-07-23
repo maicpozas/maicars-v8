@@ -458,6 +458,43 @@
       });
     }
 
+    function editarVehiculoModal(auto){
+      return new Promise(resolve => {
+        let settled = false;
+        const finish = (v) => { if(settled) return; settled = true; resolve(v); };
+        activeOnClose = () => finish(null);
+        showModal({
+          title:'Editar vehículo',
+          bodyHTML: `
+            <div class="form-row">
+              <div class="field"><label>Marca *</label><input id="m_marca" type="text" value="${(auto.marca||'').replace(/"/g,'&quot;')}"></div>
+              <div class="field"><label>Modelo *</label><input id="m_modelo" type="text" value="${(auto.modelo||'').replace(/"/g,'&quot;')}"></div>
+            </div>
+            <div class="form-row">
+              <div class="field"><label>Año *</label><input id="m_anio" type="number" min="1950" max="2099" value="${auto.anio}"></div>
+              <div class="field"><label>Valor de compra (CLP) *</label><input id="m_compra" type="number" min="0" step="1" value="${auto.compra ?? ''}"></div>
+            </div>
+            <div class="field"><label>URL de imagen</label><input id="m_img" type="url" value="${(auto.img||'').replace(/"/g,'&quot;')}" placeholder="https://..."></div>
+          `,
+          buttons: [
+            { label:'Cancelar', className:'btn btn-outline', onClick: () => finish(null) },
+            { label:'Guardar cambios', className:'btn', onClick: (root) => {
+                const marca = $('#m_marca', root).value.trim();
+                const modelo = $('#m_modelo', root).value.trim();
+                const anio = Number($('#m_anio', root).value);
+                const compra = Number($('#m_compra', root).value || 0);
+                const img = $('#m_img', root).value.trim() || null;
+                if(!marca){ shake($('#m_marca', root)); return false; }
+                if(!modelo){ shake($('#m_modelo', root)); return false; }
+                if(!anio){ shake($('#m_anio', root)); return false; }
+                if(!compra || compra <= 0){ shake($('#m_compra', root)); return false; }
+                finish({ marca, modelo, anio, compra, img });
+              } }
+          ]
+        });
+      });
+    }
+
     /* ===================== Navegación ===================== */
     const menu = $('#menu');
     $('#menuBtn').addEventListener('click', (e) => { e.stopPropagation(); menu.classList.toggle('open'); });
@@ -636,17 +673,12 @@
               <span class="pill">En inventario</span>
             </div>
             <img class="detail-hero" src="${auto.img || PLACEHOLDER_IMG}" alt="${auto.marca} ${auto.modelo}">
-            <div class="stack" style="margin-top:16px">
-              <div class="form-row">
-                <div class="field"><label>Marca</label><input id="d_marca" type="text" value="${(auto.marca||'').replace(/"/g,'&quot;')}"></div>
-                <div class="field"><label>Modelo</label><input id="d_modelo" type="text" value="${(auto.modelo||'').replace(/"/g,'&quot;')}"></div>
+            <div class="row" style="justify-content:space-between; align-items:flex-start; margin-top:16px">
+              <div>
+                <h2 style="margin-bottom:2px">${auto.marca} ${auto.modelo}</h2>
+                <div class="muted">Año ${auto.anio}</div>
               </div>
-              <div class="form-row">
-                <div class="field"><label>Año</label><input id="d_anio" type="number" min="1950" max="2099" value="${auto.anio}"></div>
-                <div class="field"><label>Valor de compra (CLP)</label><input id="d_compra" type="number" min="0" step="1" value="${auto.compra ?? ''}"></div>
-              </div>
-              <div class="field"><label>URL de imagen</label><input id="d_img" type="url" value="${(auto.img||'').replace(/"/g,'&quot;')}" placeholder="https://..."></div>
-              <button class="btn btn-block" id="d_guardar_valores">Guardar cambios</button>
+              <button class="btn btn-outline btn-sm" id="d_editar">Editar</button>
             </div>
           </div>
 
@@ -695,18 +727,11 @@
 
       $('#d_volver').addEventListener('click', () => { show('inventario'); loadInventario(); });
 
-      $('#d_guardar_valores').addEventListener('click', async () => {
-        const marca = $('#d_marca').value.trim();
-        const modelo = $('#d_modelo').value.trim();
-        const anio = Number($('#d_anio').value);
-        const compra = Number($('#d_compra').value || 0);
-        const img = $('#d_img').value.trim() || null;
-        if(!marca){ shake($('#d_marca')); return; }
-        if(!modelo){ shake($('#d_modelo')); return; }
-        if(!anio){ shake($('#d_anio')); return; }
-        if(!compra || compra <= 0){ shake($('#d_compra')); return; }
+      $('#d_editar').addEventListener('click', async () => {
+        const data = await editarVehiculoModal(auto);
+        if(!data) return;
         try{
-          await api('/api/inventario-update', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id: auto.id, marca, modelo, anio, compra, img }) });
+          await api('/api/inventario-update', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id: auto.id, ...data }) });
           toast('Cambios guardados');
           openDetalle(auto.id);
         } catch(e){ toast('No se pudo guardar: ' + e.message, 'error'); }
