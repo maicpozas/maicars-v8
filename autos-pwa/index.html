@@ -209,12 +209,32 @@
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
             Agregar vehículo
           </button>
+          <button id="m_logout">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            Cerrar sesión
+          </button>
         </div>
       </div>
     </div>
   </header>
 
   <main>
+    <!-- Login -->
+    <section id="view-login" class="hide" aria-label="Iniciar sesión" style="min-height:calc(100vh - 140px); display:grid; place-items:center">
+      <div class="card" style="max-width:360px; width:100%">
+        <div class="brand" style="justify-content:center; margin-bottom:6px; cursor:default">
+          <span class="brand-mark">
+            <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17h14M5 17a2 2 0 1 1-4 0 2 2 0 0 1 4 0Zm14 0a2 2 0 1 0 4 0 2 2 0 0 0-4 0ZM3 17V11l2-5h14l2 5v6"/><path d="M5 11h14"/></svg>
+          </span>
+          Mai<span>Cars</span>
+        </div>
+        <p class="muted" style="text-align:center; margin:6px 0 18px">Ingresa la contraseña para acceder a tu inventario</p>
+        <div class="field"><label>Contraseña</label><input id="login_password" type="password" placeholder="••••••••" autocomplete="current-password"></div>
+        <button class="btn btn-block" id="login_submit" style="margin-top:14px">Ingresar</button>
+        <p class="faint" id="login_error" style="text-align:center; margin-top:10px; min-height:1em; color:var(--danger)"></p>
+      </div>
+    </section>
+
     <!-- Agregar vehículo -->
     <section id="view-form" class="card hide" aria-label="Agregar vehículo" style="max-width:640px;margin:0 auto">
       <h2 style="margin-bottom:16px">Nuevo vehículo</h2>
@@ -241,7 +261,7 @@
     </section>
 
     <!-- Inventario -->
-    <section id="view-inventario" aria-label="Inventario">
+    <section id="view-inventario" class="hide" aria-label="Inventario">
       <div class="toolbar">
         <div class="search-box">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
@@ -307,6 +327,10 @@
       let res;
       try{ res = await fetch(path, opts); }
       catch(e){ throw new Error('No se pudo conectar con el servidor.'); }
+      if(res.status === 401){
+        show('login');
+        throw new Error('Tu sesión expiró. Inicia sesión de nuevo.');
+      }
       if(!res.ok){
         let text = await res.text().catch(()=> '');
         if(!text || /<\/?[a-z][\s\S]*>/i.test(text)) text = 'Error ' + res.status;
@@ -503,9 +527,20 @@
     $('#m_inventario').addEventListener('click', () => { menu.classList.remove('open'); show('inventario'); loadInventario(); });
     $('#m_vendidos').addEventListener('click', () => { menu.classList.remove('open'); show('vendidos'); loadVendidos(); });
     $('#m_agregar').addEventListener('click', () => { menu.classList.remove('open'); resetForm(); show('form'); });
+    $('#m_logout').addEventListener('click', async () => {
+      menu.classList.remove('open');
+      try{ await fetch('/api/logout', { method:'POST' }); } catch(e){}
+      show('login');
+      toast('Sesión cerrada');
+    });
 
-    const views = { form: $('#view-form'), inventario: $('#view-inventario'), detalle: $('#view-detalle'), vendidos: $('#view-vendidos') };
-    function show(viewName){ Object.values(views).forEach(v => v.classList.add('hide')); views[viewName].classList.remove('hide'); window.scrollTo({top:0, behavior:'smooth'}); }
+    const views = { login: $('#view-login'), form: $('#view-form'), inventario: $('#view-inventario'), detalle: $('#view-detalle'), vendidos: $('#view-vendidos') };
+    function show(viewName){
+      Object.values(views).forEach(v => v.classList.add('hide'));
+      views[viewName].classList.remove('hide');
+      $('.app-actions').classList.toggle('hide', viewName === 'login');
+      window.scrollTo({top:0, behavior:'smooth'});
+    }
 
     /* ===================== Estado de conexión ===================== */
     function updateOnlineStatus(){
@@ -972,10 +1007,50 @@
       }
     }
 
+    /* ===================== Autenticación ===================== */
+    async function checkSession(){
+      try{
+        const res = await fetch('/api/session');
+        if(!res.ok) return false;
+        const data = await res.json();
+        return !!data.authenticated;
+      } catch(e){ return false; }
+    }
+    function startApp(){
+      loadInventario();
+      show('inventario');
+      checkLegacyMigration();
+    }
+    async function doLogin(){
+      const input = $('#login_password');
+      const pass = input.value;
+      if(!pass){ shake(input); return; }
+      const btn = $('#login_submit'); btn.disabled = true;
+      $('#login_error').textContent = '';
+      try{
+        const res = await fetch('/api/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ password: pass }) });
+        if(!res.ok){
+          $('#login_error').textContent = 'Contraseña incorrecta.';
+          shake(input);
+          input.value = '';
+          input.focus();
+          return;
+        }
+        input.value = '';
+        startApp();
+      } catch(e){
+        $('#login_error').textContent = 'No se pudo conectar con el servidor.';
+      } finally{ btn.disabled = false; }
+    }
+    $('#login_submit').addEventListener('click', doLogin);
+    $('#login_password').addEventListener('keydown', (e) => { if(e.key === 'Enter') doLogin(); });
+
     /* ===================== Inicio ===================== */
-    loadInventario();
-    show('inventario');
-    checkLegacyMigration();
+    (async () => {
+      const authed = await checkSession();
+      if(authed){ startApp(); }
+      else { show('login'); $('#login_password').focus(); }
+    })();
     if('serviceWorker' in navigator){
       window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(console.warn); });
     }

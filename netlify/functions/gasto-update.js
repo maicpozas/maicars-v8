@@ -1,5 +1,8 @@
 import { neon } from '@netlify/neon';
+import { isAuthenticated } from './lib/auth.js';
+
 export default async (req) => {
+  if (!isAuthenticated(req)) return new Response('No autorizado', { status: 401 });
   try {
     if (req.method !== 'POST') return new Response('Method Not Allowed', { status: 405 });
     const { id, nombre, monto, fechaISO } = await req.json();
