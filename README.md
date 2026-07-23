@@ -1,4 +1,3 @@
-\
 # MaiCars V8 — PWA + Netlify DB (Neon)
 
 Esta versión integra base de datos **Postgres serverless** mediante **Netlify DB** (potenciado por Neon) y expone endpoints con **Netlify Functions**.

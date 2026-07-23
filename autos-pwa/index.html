@@ -1,347 +1,913 @@
-\
 <!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>MaiCars</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>MaiCars — Gestión de compra/venta de vehículos</title>
+  <meta name="description" content="Registra la compra, gastos y venta de tus vehículos y controla tu margen de ganancia al instante.">
   <link rel="manifest" href="manifest.webmanifest">
-  <meta name="theme-color" content="#0b0b0d">
+  <link rel="icon" href="assets/icon-192.png">
+  <link rel="apple-touch-icon" href="assets/icon-192.png">
+  <meta name="theme-color" content="#0a0b0d">
   <style>
-    :root{ --bg:#0b0b0d; --card:#121316; --text:#e9ecef; --muted:#9aa0a6; --accent:#2ee6c5; --accent-2:#17c9ac; --danger:#ff6464; color-scheme:dark }
+    :root{
+      --bg:#0a0b0d; --bg-soft:#0e1013;
+      --surface:#141519; --surface-2:#191b20;
+      --border:#23262d; --border-soft:#1b1d23;
+      --text:#eef1f4; --text-dim:#9aa3ad; --text-faint:#666d78;
+      --accent:#2ee6c5; --accent-strong:#17c9ac; --accent-soft:rgba(46,230,197,.12); --accent-contrast:#04211c;
+      --danger:#ff6b6b; --danger-strong:#ef4444; --danger-soft:rgba(255,107,107,.14);
+      --success:#57e389;
+      --radius-lg:18px; --radius-md:14px; --radius-sm:10px;
+      --shadow-1:0 1px 2px rgba(0,0,0,.4);
+      --shadow-2:0 12px 32px rgba(0,0,0,.45);
+      color-scheme:dark;
+    }
     *{box-sizing:border-box}
     html,body{height:100%}
-    body{ margin:0; font-family:system-ui,-apple-system,"Segoe UI",Roboto; background:var(--bg); color:var(--text); display:grid; grid-template-rows:auto 1fr auto; min-height:100vh }
+    body{
+      margin:0; font-family:"Segoe UI",system-ui,-apple-system,Roboto,sans-serif;
+      background:
+        radial-gradient(1200px 600px at 100% -10%, rgba(46,230,197,.06), transparent 60%),
+        radial-gradient(900px 500px at -10% 0%, rgba(46,230,197,.04), transparent 55%),
+        var(--bg);
+      color:var(--text); display:grid; grid-template-rows:auto 1fr auto; min-height:100vh;
+      -webkit-font-smoothing:antialiased;
+    }
+    h1,h2,h3,h4{ margin:0; letter-spacing:-.01em }
+    p{ margin:0 }
 
-    .appbar{ position:sticky; top:0; z-index:50; display:flex; align-items:center; justify-content:space-between; padding:12px 16px; background:#0c0e12; border-bottom:1px solid #1e2026 }
-    .brand{ font-weight:900 } .brand span{ color:var(--accent) }
-    .app-actions{ display:flex; gap:10px; align-items:center }
-    .chip{ display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border-radius:999px; font-weight:700; color:#041412; background:var(--accent) }
+    /* ---------- App bar ---------- */
+    .appbar{
+      position:sticky; top:0; z-index:60; display:flex; align-items:center; justify-content:space-between;
+      padding:12px 18px; background:rgba(10,11,13,.78); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+      border-bottom:1px solid var(--border-soft);
+    }
+    .brand{ display:flex; align-items:center; gap:10px; font-weight:800; font-size:1.05rem; cursor:pointer; user-select:none }
+    .brand-mark{
+      width:34px; height:34px; border-radius:10px; display:grid; place-items:center; flex:none;
+      background:linear-gradient(155deg, var(--accent), var(--accent-strong)); color:var(--accent-contrast);
+      box-shadow:0 4px 14px rgba(46,230,197,.25);
+    }
+    .brand span{ color:var(--accent) }
+    .app-actions{ display:flex; gap:8px; align-items:center }
 
-    .menu-btn{ appearance:none; border:none; background:transparent; color:var(--text); font-weight:700; cursor:pointer }
+    .chip{ display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border-radius:999px; font-weight:700; font-size:.78rem; color:var(--accent); background:var(--accent-soft); border:1px solid transparent; white-space:nowrap }
+    .chip::before{ content:""; width:7px; height:7px; border-radius:50%; background:var(--accent) }
+    .chip.chip-offline{ color:var(--danger); background:var(--danger-soft) }
+    .chip.chip-offline::before{ background:var(--danger) }
+
+    .btn-sm{ padding:7px 12px !important; font-size:.82rem !important; border-radius:9px !important }
+
+    .menu-btn{ appearance:none; border:1px solid var(--border); background:var(--surface); color:var(--text); font-weight:700; cursor:pointer; padding:9px 14px; border-radius:10px; display:flex; align-items:center; gap:6px }
+    .menu-btn:hover{ border-color:var(--accent) }
     .dropdown{ position:relative }
-    .dropdown-panel{ position:absolute; right:0; top:100%; margin-top:8px; min-width:200px; background:#101216; border:1px solid #23262e; border-radius:12px; box-shadow:0 10px 24px rgba(0,0,0,.35); display:none; padding:8px }
-    .dropdown.open .dropdown-panel{ display:block }
-    .dropdown-panel button{ width:100%; text-align:left; appearance:none; border:none; background:transparent; color:var(--text); padding:10px 12px; border-radius:8px; cursor:pointer }
-    .dropdown-panel button:hover{ background:#12161b }
+    .dropdown-panel{ position:absolute; right:0; top:calc(100% + 8px); min-width:210px; background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-md); box-shadow:var(--shadow-2); display:none; padding:6px; opacity:0; transform:translateY(-4px); transition:opacity .12s ease, transform .12s ease }
+    .dropdown.open .dropdown-panel{ display:block; opacity:1; transform:translateY(0) }
+    .dropdown-panel button{ width:100%; text-align:left; appearance:none; border:none; background:transparent; color:var(--text); padding:10px 12px; border-radius:8px; cursor:pointer; font-size:.92rem; display:flex; align-items:center; gap:10px }
+    .dropdown-panel button:hover{ background:var(--surface) }
+    .dropdown-panel button svg{ color:var(--accent) }
 
-    main{ padding:12px 16px }
+    main{ padding:18px; max-width:1080px; margin:0 auto; width:100% }
 
-    /* Grids: 2 columnas */
+    /* ---------- Layout helpers ---------- */
     .grid{ display:grid; gap:14px }
-    .grid.autos{ grid-template-columns:repeat(2,1fr) }
-    @media (max-width:480px){ .grid.autos{ grid-template-columns:1fr } }
-
-    /* Card con imagen circular */
-    .auto-card{ text-align:center; background:var(--card); border:1px solid #1e2026; border-radius:16px; padding:16px }
-    .thumb{ width:160px; height:160px; border-radius:50%; object-fit:cover; border:2px solid var(--accent); background:#0a0a0a; display:block; margin:6px auto }
-    .thumb-sold{ filter: grayscale(100%) brightness(0.85); }
-    .title{ font-weight:800; margin:8px 0 2px }
-    .muted{ color:var(--muted) }
-    .pill{ display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px; font-size:.85rem; border:1px solid #27313a; background:#0e1216; color:var(--muted) }
-
-    .btn{ appearance:none; border:none; outline:none; cursor:pointer; background:var(--accent); color:#041412; font-weight:700; padding:10px 14px; border-radius:10px; transition:transform .05s ease, background .15s ease }
-    .btn:hover{ background:var(--accent-2) }
-    .btn-outline{ background:transparent; color:var(--accent); border:1px solid var(--accent) }
-    .btn-danger{ background:var(--danger); color:white }
-
-    .card{ background:var(--card); border:1px solid #1e2026; border-radius:14px; padding:14px }
+    .grid.autos{ grid-template-columns:repeat(auto-fill, minmax(210px,1fr)) }
+    .stack{ display:grid; gap:14px }
     .row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap }
-    .stack{ display:grid; gap:8px }
-    input{ width:100%; padding:10px 12px; border-radius:10px; border:1px solid #2a2d34; background:#0e1013; color:var(--text) }
-    .form-row{ display:grid; gap:10px; grid-template-columns:1fr 1fr }
-    .hide{ display:none }
+    .hide{ display:none !important }
+    .muted{ color:var(--text-dim) }
+    .faint{ color:var(--text-faint); font-size:.82rem }
 
+    .toolbar{ display:flex; gap:10px; align-items:center; justify-content:space-between; margin-bottom:16px; flex-wrap:wrap }
+    .search-box{ position:relative; flex:1; min-width:200px; max-width:360px }
+    .search-box svg{ position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--text-faint); pointer-events:none }
+    .search-box input{ padding-left:36px }
+    .toolbar-count{ font-size:.85rem; color:var(--text-dim); white-space:nowrap }
+
+    /* ---------- Stat tiles ---------- */
+    .stats-row{ display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin-bottom:18px }
+    .stat-tile{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-md); padding:14px 16px; display:grid; gap:6px }
+    .stat-label{ font-size:.78rem; color:var(--text-dim); font-weight:600; text-transform:uppercase; letter-spacing:.04em }
+    .stat-value{ font-size:1.3rem; font-weight:800 }
+    .stat-value.positive{ color:var(--success) }
+    .stat-value.negative{ color:var(--danger) }
+
+    /* ---------- Cards ---------- */
+    .card{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:18px; box-shadow:var(--shadow-1) }
+    .auto-card{ text-align:center; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:18px; transition:border-color .15s ease, transform .15s ease; position:relative }
+    .auto-card:hover{ border-color:#2c3038; transform:translateY(-2px) }
+    .thumb{ width:140px; height:140px; border-radius:50%; object-fit:cover; border:2px solid var(--accent); background:var(--bg-soft); display:block; margin:4px auto 12px }
+    .thumb-sold{ filter:grayscale(100%) brightness(.8) }
+    .title{ font-weight:800; font-size:1.02rem; margin:2px 0 2px }
+    .price-tag{ display:inline-block; font-weight:700; color:var(--accent); background:var(--accent-soft); padding:4px 10px; border-radius:999px; font-size:.82rem; margin-top:6px }
+    .pill{ display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border-radius:999px; font-size:.82rem; border:1px solid var(--border); background:var(--bg-soft); color:var(--text-dim) }
+
+    /* ---------- Buttons ---------- */
+    .btn{ appearance:none; border:1px solid transparent; outline:none; cursor:pointer; background:var(--accent); color:var(--accent-contrast); font-weight:700; padding:11px 16px; border-radius:11px; font-size:.92rem; transition:filter .12s ease, transform .06s ease, background .15s ease; min-height:42px }
+    .btn:hover{ filter:brightness(1.06) }
+    .btn:active{ transform:scale(.98) }
+    .btn:disabled{ opacity:.5; cursor:not-allowed; filter:none }
+    .btn-outline{ background:transparent; color:var(--accent); border:1px solid var(--border) }
+    .btn-outline:hover{ border-color:var(--accent); background:var(--accent-soft) }
+    .btn-danger{ background:var(--danger); color:#2a0000 }
+    .btn-danger:hover{ background:var(--danger-strong); color:white }
+    .btn-danger-outline{ background:transparent; color:var(--danger); border:1px solid var(--border) }
+    .btn-danger-outline:hover{ border-color:var(--danger); background:var(--danger-soft) }
+    .btn-block{ width:100% }
+    .icon-btn{ appearance:none; border:1px solid var(--border); background:var(--bg-soft); color:var(--text-dim); cursor:pointer; width:34px; height:34px; border-radius:9px; display:inline-flex; align-items:center; justify-content:center; transition:border-color .12s ease, color .12s ease }
+    .icon-btn:hover{ color:var(--accent); border-color:var(--accent) }
+    .icon-btn.danger:hover{ color:var(--danger); border-color:var(--danger) }
+
+    /* ---------- Forms ---------- */
+    .field label{ display:block; font-size:.85rem; font-weight:600; color:var(--text-dim); margin-bottom:6px }
+    input, select{ width:100%; padding:11px 12px; border-radius:10px; border:1px solid var(--border); background:var(--bg-soft); color:var(--text); font-size:.95rem; transition:border-color .12s ease, box-shadow .12s ease }
+    input:focus, select:focus{ outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft) }
+    input::placeholder{ color:var(--text-faint) }
+    input[type="file"]{ padding:8px }
+    .form-row{ display:grid; gap:14px; grid-template-columns:1fr 1fr }
+    @media (max-width:560px){ .form-row{ grid-template-columns:1fr } }
+    .input-error{ border-color:var(--danger) !important; animation:shake .32s ease }
+    @keyframes shake{ 10%,90%{transform:translateX(-2px)} 20%,80%{transform:translateX(4px)} 30%,50%,70%{transform:translateX(-6px)} 40%,60%{transform:translateX(6px)} }
+    .img-preview{ width:100%; max-height:180px; object-fit:cover; border-radius:var(--radius-sm); border:1px solid var(--border); background:var(--bg-soft); margin-top:10px }
+
+    /* ---------- Table ---------- */
     .table{ width:100%; border-collapse:collapse }
-    .table th,.table td{ border-bottom:1px solid #23262e; padding:10px; text-align:left }
-    .table th{ color:#bfc5cc; font-weight:700 }
-    .right{ text-align:right }
-    footer{ padding:12px 16px; border-top:1px solid #1e2026 }
-    .sold-detail{ margin-top:10px; text-align:left }
-    .detail-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px }
-    @media (max-width:520px){ .detail-grid{ grid-template-columns:1fr } }
-    .detail-item{ background:#0e1216; border:1px solid #23262e; border-radius:8px; padding:10px }
-    .detail-label{ color:#bfc5cc; font-size:.85rem }
-    .detail-value{ font-weight:700 }
+    .table th,.table td{ border-bottom:1px solid var(--border-soft); padding:10px 8px; text-align:left; font-size:.9rem }
+    .table th{ color:var(--text-dim); font-weight:700; font-size:.78rem; text-transform:uppercase; letter-spacing:.03em }
+    .table td.right, .table th.right{ text-align:right }
+    .table tbody tr:hover{ background:var(--bg-soft) }
+    .table .row-actions{ display:flex; gap:6px; justify-content:flex-end }
+
+    footer{ padding:16px 18px; border-top:1px solid var(--border-soft); text-align:center }
+
+    /* ---------- Detail view ---------- */
+    .detail-hero{ width:100%; height:220px; object-fit:cover; border-radius:var(--radius-md); border:1px solid var(--border); background:var(--bg-soft) }
+    .detail-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:10px }
+    .detail-item{ background:var(--bg-soft); border:1px solid var(--border-soft); border-radius:var(--radius-sm); padding:12px }
+    .detail-label{ color:var(--text-dim); font-size:.78rem; font-weight:600; text-transform:uppercase; letter-spacing:.03em }
+    .detail-value{ font-weight:800; font-size:1.05rem; margin-top:2px }
+    .detail-value.positive{ color:var(--success) }
+    .detail-value.negative{ color:var(--danger) }
+    .sold-detail{ margin-top:12px }
+
+    /* ---------- Empty / error / skeleton ---------- */
+    .empty-state{ text-align:center; padding:48px 20px; color:var(--text-dim) }
+    .empty-state svg{ color:var(--text-faint); margin-bottom:10px }
+    .empty-state h3{ color:var(--text); margin-bottom:6px }
+    .skel-block{ background:linear-gradient(90deg,#181a1f 25%,#20232a 37%,#181a1f 63%); background-size:400% 100%; animation:skeleton 1.4s ease infinite; border-radius:8px }
+    @keyframes skeleton{ 0%{background-position:100% 50%} 100%{background-position:0 50%} }
+
+    /* ---------- Modal ---------- */
+    .modal-overlay{ position:fixed; inset:0; background:rgba(4,5,6,.6); backdrop-filter:blur(2px); display:flex; align-items:flex-end; justify-content:center; z-index:200; opacity:0; transition:opacity .15s ease }
+    .modal-overlay.show{ opacity:1 }
+    @media (min-width:560px){ .modal-overlay{ align-items:center } }
+    .modal{ background:var(--surface-2); border:1px solid var(--border); border-radius:18px 18px 0 0; width:100%; max-width:460px; max-height:88vh; overflow:auto; box-shadow:var(--shadow-2); transform:translateY(16px); transition:transform .15s ease }
+    .modal-overlay.show .modal{ transform:translateY(0) }
+    @media (min-width:560px){ .modal{ border-radius:18px } }
+    .modal-header{ display:flex; align-items:center; justify-content:space-between; padding:18px 20px 8px }
+    .modal-body{ padding:6px 20px 4px; display:grid; gap:14px }
+    .modal-footer{ display:flex; justify-content:flex-end; gap:10px; padding:18px 20px }
+    .modal-close{ appearance:none; border:none; background:var(--bg-soft); color:var(--text-dim); width:30px; height:30px; border-radius:8px; cursor:pointer; display:grid; place-items:center }
+    .modal-close:hover{ color:var(--text) }
+    .modal-overlay.modal-danger .modal-header h3{ color:var(--danger) }
+    .preview-box{ background:var(--bg-soft); border:1px solid var(--border-soft); border-radius:var(--radius-sm); padding:14px; display:flex; justify-content:space-between; align-items:center }
+    .preview-box strong{ font-size:1.15rem; color:var(--success) }
+    .preview-box.preview-neg strong{ color:var(--danger) }
+
+    /* ---------- Toasts ---------- */
+    .toast-container{ position:fixed; left:0; right:0; bottom:18px; display:flex; flex-direction:column; align-items:center; gap:8px; z-index:300; pointer-events:none; padding:0 16px }
+    .toast{ pointer-events:auto; background:var(--surface-2); border:1px solid var(--border); border-left:3px solid var(--accent); color:var(--text); padding:12px 16px; border-radius:10px; box-shadow:var(--shadow-2); font-size:.9rem; max-width:420px; width:100%; opacity:0; transform:translateY(8px); transition:opacity .18s ease, transform .18s ease }
+    .toast.show{ opacity:1; transform:translateY(0) }
+    .toast.toast-error{ border-left-color:var(--danger) }
+    .toast.toast-ok{ border-left-color:var(--success) }
   </style>
 </head>
 <body>
   <header class="appbar">
-    <div class="brand">Mai<span>Cars</span></div>
+    <div class="brand" id="brandHome">
+      <span class="brand-mark">
+        <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17h14M5 17a2 2 0 1 1-4 0 2 2 0 0 1 4 0Zm14 0a2 2 0 1 0 4 0 2 2 0 0 0-4 0ZM3 17V11l2-5h14l2 5v6"/><path d="M5 11h14"/></svg>
+      </span>
+      Mai<span>Cars</span>
+    </div>
     <div class="app-actions">
-      <span class="chip">PWA</span>
+      <span class="chip" id="statusChip">En línea</span>
+      <button class="btn btn-outline btn-sm hide" id="installBtn">Instalar app</button>
       <div class="dropdown" id="menu">
         <button class="menu-btn" id="menuBtn">Menú ▾</button>
         <div class="dropdown-panel" aria-label="Menú">
-          <button id="m_inventario">Inventario</button>
-          <button id="m_vendidos">Vendidos</button>
-          <button id="m_agregar">Agregar vehículo</button>
+          <button id="m_inventario">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+            Inventario
+          </button>
+          <button id="m_vendidos">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-4 4"/></svg>
+            Vendidos
+          </button>
+          <button id="m_agregar">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+            Agregar vehículo
+          </button>
         </div>
       </div>
     </div>
   </header>
 
   <main>
-    <section id="view-form" class="card hide" aria-label="Agregar vehículo">
-      <h2 style="margin-top:0">Nuevo vehículo</h2>
-      <div class="grid">
+    <!-- Agregar vehículo -->
+    <section id="view-form" class="card hide" aria-label="Agregar vehículo" style="max-width:640px;margin:0 auto">
+      <h2 style="margin-bottom:16px">Nuevo vehículo</h2>
+      <div class="stack">
         <div class="form-row">
-          <div>
-            <label>Marca</label>
-            <input id="f_marca" type="text" placeholder="Ej: Toyota">
-          </div>
-          <div>
-            <label>Modelo</label>
-            <input id="f_modelo" type="text" placeholder="Ej: Corolla">
-          </div>
+          <div class="field"><label>Marca *</label><input id="f_marca" type="text" placeholder="Ej: Toyota"></div>
+          <div class="field"><label>Modelo *</label><input id="f_modelo" type="text" placeholder="Ej: Corolla"></div>
         </div>
         <div class="form-row">
-          <div>
-            <label>Año</label>
-            <input id="f_anio" type="number" min="1950" max="2099" placeholder="Ej: 2017">
-          </div>
-          <div>
-            <label>Costo de compra</label>
-            <input id="f_compra" type="number" min="0" step="1" placeholder="CLP">
-          </div>
+          <div class="field"><label>Año *</label><input id="f_anio" type="number" min="1950" max="2099" placeholder="Ej: 2017"></div>
+          <div class="field"><label>Costo de compra (CLP) *</label><input id="f_compra" type="number" min="0" step="1" placeholder="Ej: 8000000"></div>
         </div>
         <div class="form-row">
-          <div>
-            <label>URL de imagen (opcional)</label>
-            <input id="f_img" type="url" placeholder="https://...">
-          </div>
-          <div>
-            <label>Subir imagen desde el teléfono</label>
-            <input id="f_img_file" type="file" accept="image/*">
-          </div>
+          <div class="field"><label>URL de imagen (opcional)</label><input id="f_img" type="url" placeholder="https://..."></div>
+          <div class="field"><label>Subir foto desde el teléfono</label><input id="f_img_file" type="file" accept="image/*"></div>
         </div>
+        <img id="f_preview" class="img-preview hide" alt="Vista previa">
         <div class="row" style="justify-content:flex-end">
-          <button class="btn" id="f_guardar">Guardar</button>
           <button class="btn btn-outline" id="f_cancelar">Cancelar</button>
+          <button class="btn" id="f_guardar">Guardar vehículo</button>
         </div>
-        <p class="muted">Las imágenes subidas se guardan localmente y se guardan en la DB como data URL si eliges subirlas.</p>
+        <p class="faint">La imagen se comprime automáticamente antes de guardarse en la nube.</p>
       </div>
     </section>
 
     <!-- Inventario -->
-    <section id="view-inventario" class="grid autos" aria-label="Inventario"></section>
+    <section id="view-inventario" aria-label="Inventario">
+      <div class="toolbar">
+        <div class="search-box">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          <input id="inv-search" type="text" placeholder="Buscar por marca, modelo o año...">
+        </div>
+        <span class="toolbar-count" id="inv-count"></span>
+      </div>
+      <div class="grid autos" id="inventario-grid"></div>
+    </section>
 
     <!-- Detalle inventario -->
     <section id="view-detalle" class="hide" aria-label="Detalle inventario"></section>
 
     <!-- Vendidos -->
-    <section id="view-vendidos" class="hide" aria-label="Vendidos"></section>
+    <section id="view-vendidos" class="hide" aria-label="Vendidos">
+      <div class="stats-row" id="ven-stats"></div>
+      <div class="toolbar">
+        <div class="search-box">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          <input id="ven-search" type="text" placeholder="Buscar por marca, modelo o año...">
+        </div>
+        <div class="row" style="gap:8px">
+          <span class="toolbar-count" id="ven-count"></span>
+          <button class="btn btn-outline btn-sm" id="ven-export">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Exportar CSV
+          </button>
+        </div>
+      </div>
+      <div class="grid autos" id="vendidos-grid"></div>
+    </section>
   </main>
 
   <footer>
-    <small class="muted">MaiCars • PWA instalable • Offline básico • Datos en la nube (Netlify DB)</small>
+    <small class="muted">MaiCars • PWA instalable · Datos en la nube (Netlify DB)</small>
   </footer>
 
-  <script>
-    const CLP = new Intl.NumberFormat('es-CL',{style:'currency', currency:'CLP', maximumFractionDigits:0});
-    const fmt = (n)=>CLP.format(Number(n||0));
-    const uid = ()=> Math.random().toString(36).slice(2)+Date.now().toString(36);
-    const $ = (sel)=> document.querySelector(sel);
+  <!-- Modal -->
+  <div class="modal-overlay hide" id="modalOverlay">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="modalTitle"></h3>
+        <button class="modal-close" id="modalCloseBtn" aria-label="Cerrar">✕</button>
+      </div>
+      <div class="modal-body" id="modalBody"></div>
+      <div class="modal-footer" id="modalFooter"></div>
+    </div>
+  </div>
 
-    // Menu
+  <!-- Toasts -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script>
+    /* ===================== Utilidades base ===================== */
+    const CLP = new Intl.NumberFormat('es-CL', { style:'currency', currency:'CLP', maximumFractionDigits:0 });
+    const fmt = (n) => CLP.format(Number(n || 0));
+    const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
+    const $ = (sel, root=document) => root.querySelector(sel);
+    const todayISODate = () => new Date().toISOString().slice(0,10);
+    const fechaCL = (iso) => iso ? new Date(iso).toLocaleDateString('es-CL') : '';
+
+    async function api(path, opts){
+      let res;
+      try{ res = await fetch(path, opts); }
+      catch(e){ throw new Error('No se pudo conectar con el servidor.'); }
+      if(!res.ok){
+        let text = await res.text().catch(()=> '');
+        if(!text || /<\/?[a-z][\s\S]*>/i.test(text)) text = 'Error ' + res.status;
+        throw new Error(text.slice(0, 200));
+      }
+      const ct = res.headers.get('content-type') || '';
+      return ct.includes('application/json') ? res.json() : null;
+    }
+
+    function csvEscape(v){
+      const s = String(v ?? '');
+      return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
+    }
+
+    function shake(el){ if(!el) return; el.classList.remove('input-error'); void el.offsetWidth; el.classList.add('input-error'); el.focus(); }
+
+    /* ===================== Toasts ===================== */
+    function toast(message, type='ok'){
+      const container = $('#toastContainer');
+      const el = document.createElement('div');
+      el.className = 'toast toast-' + type;
+      el.textContent = message;
+      container.appendChild(el);
+      requestAnimationFrame(()=> el.classList.add('show'));
+      setTimeout(()=>{ el.classList.remove('show'); setTimeout(()=> el.remove(), 200); }, 3600);
+    }
+
+    /* ===================== Modal engine ===================== */
+    const modalOverlay = $('#modalOverlay');
+    let activeOnClose = null;
+    let modalKeyHandler = null;
+
+    function showModal({ title, bodyHTML, buttons, onMount, danger }){
+      $('#modalTitle').textContent = title;
+      $('#modalBody').innerHTML = bodyHTML;
+      const footer = $('#modalFooter'); footer.innerHTML = '';
+      modalOverlay.classList.toggle('modal-danger', !!danger);
+
+      (buttons || []).forEach(b => {
+        const btn = document.createElement('button');
+        btn.className = b.className || 'btn btn-outline';
+        btn.textContent = b.label;
+        btn.addEventListener('click', () => {
+          const result = b.onClick ? b.onClick($('#modalBody')) : undefined;
+          if(result === false) return;
+          closeModal();
+        });
+        footer.appendChild(btn);
+      });
+
+      modalOverlay.classList.remove('hide');
+      requestAnimationFrame(()=> modalOverlay.classList.add('show'));
+      if(onMount) onMount($('#modalBody'));
+      const firstInput = $('#modalBody').querySelector('input,select,textarea');
+      if(firstInput) firstInput.focus();
+
+      modalKeyHandler = (e) => { if(e.key === 'Escape') closeModal(); };
+      document.addEventListener('keydown', modalKeyHandler);
+    }
+    function closeModal(){
+      modalOverlay.classList.remove('show');
+      if(modalKeyHandler){ document.removeEventListener('keydown', modalKeyHandler); modalKeyHandler = null; }
+      setTimeout(()=> modalOverlay.classList.add('hide'), 150);
+      if(activeOnClose){ const fn = activeOnClose; activeOnClose = null; fn(); }
+    }
+    modalOverlay.addEventListener('click', (e) => { if(e.target === modalOverlay) closeModal(); });
+    $('#modalCloseBtn').addEventListener('click', closeModal);
+
+    function confirmDialog(title, message, { danger=false, confirmLabel='Confirmar' } = {}){
+      return new Promise(resolve => {
+        let settled = false;
+        const finish = (v) => { if(settled) return; settled = true; resolve(v); };
+        activeOnClose = () => finish(false);
+        showModal({
+          title, danger,
+          bodyHTML: `<p class="muted" style="margin:0">${message}</p>`,
+          buttons: [
+            { label:'Cancelar', className:'btn btn-outline', onClick: () => finish(false) },
+            { label:confirmLabel, className: danger ? 'btn btn-danger' : 'btn', onClick: () => finish(true) }
+          ]
+        });
+      });
+    }
+
+    function gastoModal(initial){
+      return new Promise(resolve => {
+        let settled = false;
+        const finish = (v) => { if(settled) return; settled = true; resolve(v); };
+        activeOnClose = () => finish(null);
+        const fechaVal = initial?.fecha ? new Date(initial.fecha).toISOString().slice(0,10) : todayISODate();
+        showModal({
+          title: initial ? 'Editar gasto' : 'Agregar gasto',
+          bodyHTML: `
+            <div class="field"><label>Nombre del gasto *</label><input id="m_nombre" type="text" placeholder="Ej: Mecánica, lavado, papeles" value="${initial?.nombre ? initial.nombre.replace(/"/g,'&quot;') : ''}"></div>
+            <div class="field"><label>Monto (CLP) *</label><input id="m_monto" type="number" min="0" step="1" placeholder="Ej: 15000" value="${initial?.monto ?? ''}"></div>
+            <div class="field"><label>Fecha</label><input id="m_fecha" type="date" value="${fechaVal}"></div>
+          `,
+          buttons: [
+            { label:'Cancelar', className:'btn btn-outline', onClick: () => finish(null) },
+            { label: initial ? 'Guardar cambios' : 'Agregar gasto', className:'btn', onClick: (root) => {
+                const nombre = $('#m_nombre', root).value.trim();
+                const monto = Number($('#m_monto', root).value || 0);
+                const fecha = $('#m_fecha', root).value;
+                if(!nombre){ shake($('#m_nombre', root)); return false; }
+                if(!monto || monto <= 0){ shake($('#m_monto', root)); return false; }
+                finish({ nombre, monto, fechaISO: fecha ? new Date(fecha + 'T12:00:00').toISOString() : new Date().toISOString() });
+              } }
+          ]
+        });
+      });
+    }
+
+    function ventaModal({ compra, gastosTotal }){
+      const costoTotal = Number(compra || 0) + Number(gastosTotal || 0);
+      return new Promise(resolve => {
+        let settled = false;
+        const finish = (v) => { if(settled) return; settled = true; resolve(v); };
+        activeOnClose = () => finish(null);
+        showModal({
+          title:'Vender vehículo', danger:true,
+          bodyHTML: `
+            <div class="detail-grid">
+              <div class="detail-item"><div class="detail-label">Costo compra</div><div class="detail-value">${fmt(compra)}</div></div>
+              <div class="detail-item"><div class="detail-label">Gastos</div><div class="detail-value">${fmt(gastosTotal)}</div></div>
+            </div>
+            <div class="field"><label>Valor de venta (CLP) *</label><input id="m_venta" type="number" min="0" step="1" placeholder="Ej: 9500000"></div>
+            <div class="preview-box" id="m_preview">
+              <span class="muted">Ganancia estimada</span>
+              <strong id="m_gan">${fmt(0)}</strong>
+            </div>
+          `,
+          onMount: (root) => {
+            const input = $('#m_venta', root), gan = $('#m_gan', root), box = $('#m_preview', root);
+            input.addEventListener('input', () => {
+              const g = Number(input.value || 0) - costoTotal;
+              gan.textContent = fmt(g);
+              box.classList.toggle('preview-neg', g < 0);
+            });
+          },
+          buttons: [
+            { label:'Cancelar', className:'btn btn-outline', onClick: () => finish(null) },
+            { label:'Confirmar venta', className:'btn btn-danger', onClick: (root) => {
+                const venta = Number($('#m_venta', root).value || 0);
+                if(!venta || venta <= 0){ shake($('#m_venta', root)); return false; }
+                finish(venta);
+              } }
+          ]
+        });
+      });
+    }
+
+    /* ===================== Navegación ===================== */
     const menu = $('#menu');
-    $('#menuBtn').addEventListener('click', ()=> menu.classList.toggle('open'));
-    document.addEventListener('click', (e)=>{ if(!menu.contains(e.target)) menu.classList.remove('open'); });
-    $('#m_inventario').addEventListener('click', ()=>{ show('inventario'); loadInventario(); });
-    $('#m_vendidos').addEventListener('click', ()=>{ show('vendidos'); loadVendidos(); });
-    $('#m_agregar').addEventListener('click', ()=>{ views.form.classList.remove('hide'); show('form'); });
+    $('#menuBtn').addEventListener('click', (e) => { e.stopPropagation(); menu.classList.toggle('open'); });
+    document.addEventListener('click', (e) => { if(!menu.contains(e.target)) menu.classList.remove('open'); });
+    $('#brandHome').addEventListener('click', () => { show('inventario'); loadInventario(); });
+    $('#m_inventario').addEventListener('click', () => { menu.classList.remove('open'); show('inventario'); loadInventario(); });
+    $('#m_vendidos').addEventListener('click', () => { menu.classList.remove('open'); show('vendidos'); loadVendidos(); });
+    $('#m_agregar').addEventListener('click', () => { menu.classList.remove('open'); resetForm(); show('form'); });
 
     const views = { form: $('#view-form'), inventario: $('#view-inventario'), detalle: $('#view-detalle'), vendidos: $('#view-vendidos') };
-    function show(viewName){ Object.values(views).forEach(v=>v.classList.add('hide')); views[viewName].classList.remove('hide'); }
+    function show(viewName){ Object.values(views).forEach(v => v.classList.add('hide')); views[viewName].classList.remove('hide'); window.scrollTo({top:0, behavior:'smooth'}); }
 
-    // Helpers imagen
-    function loadImageFromFile(file){ return new Promise((resolve,reject)=>{ const r=new FileReader(); r.onload=()=>resolve(r.result); r.onerror=reject; r.readAsDataURL(file); }); }
-    async function getSelectedImage(){ const fi=$('#f_img_file'), ui=$('#f_img'); if(fi.files && fi.files[0]){ try{ const raw=await loadImageFromFile(fi.files[0]); return raw; }catch(e){ console.warn(e); return null; } } const url=(ui.value||'').trim(); return url || null; }
-
-    async function loadInventario(){
-      try {
-        const res = await fetch('/api/inventario-get');
-        const inv = await res.json();
-        renderInventario(inv);
-      } catch(e){
-        views.inventario.innerHTML = '<div class="card"><p class="muted">Error cargando inventario. ¿Conexión?</p></div>';
-      }
+    /* ===================== Estado de conexión ===================== */
+    function updateOnlineStatus(){
+      const chip = $('#statusChip');
+      if(navigator.onLine){ chip.textContent = 'En línea'; chip.classList.remove('chip-offline'); }
+      else { chip.textContent = 'Sin conexión'; chip.classList.add('chip-offline'); }
     }
+    window.addEventListener('online', updateOnlineStatus);
+    window.addEventListener('offline', updateOnlineStatus);
+    updateOnlineStatus();
 
-    function renderInventario(inv){
-      const cont = views.inventario; cont.className='grid autos'; cont.innerHTML='';
-      if(!inv || inv.length===0){ cont.innerHTML = '<div class="card"><p class="muted">No tienes vehículos. Usa “Menú → Agregar”.</p></div>'; return; }
-      inv.forEach(auto=>{
-        const card=document.createElement('article'); card.className='auto-card';
-        const imgSrc=auto.img || PLACEHOLDER_IMG;
-        card.innerHTML = `
-          <img class="thumb" src="${imgSrc}" alt="${auto.marca} ${auto.modelo}">
-          <div class="title">${auto.marca} ${auto.modelo}</div>
-          <div class="muted">Año ${auto.anio}</div>
-          <div class="row" style="justify-content:center; margin-top:10px">
-            <button class="btn btn-outline" data-action="detalle" data-id="${auto.id}">Ver detalle</button>
-            <button class="btn btn-outline" data-action="eliminar" data-id="${auto.id}">Eliminar</button>
-          </div>`;
-        cont.appendChild(card);
+    /* ===================== Instalación PWA ===================== */
+    let deferredPrompt = null;
+    window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredPrompt = e; $('#installBtn').classList.remove('hide'); });
+    $('#installBtn').addEventListener('click', async () => {
+      if(!deferredPrompt) return;
+      deferredPrompt.prompt();
+      await deferredPrompt.userChoice;
+      deferredPrompt = null;
+      $('#installBtn').classList.add('hide');
+    });
+    window.addEventListener('appinstalled', () => { toast('MaiCars instalado en el dispositivo'); $('#installBtn').classList.add('hide'); });
+
+    /* ===================== Imagen (compresión) ===================== */
+    let selectedImageDataURL = null;
+    function resizeImageFile(file, maxW=960, quality=0.82){
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const img = new Image();
+          img.onload = () => {
+            const scale = Math.min(1, maxW / img.width);
+            const w = Math.round(img.width * scale), h = Math.round(img.height * scale);
+            const canvas = document.createElement('canvas'); canvas.width = w; canvas.height = h;
+            canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+            resolve(canvas.toDataURL('image/jpeg', quality));
+          };
+          img.onerror = reject;
+          img.src = reader.result;
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
       });
-      cont.querySelectorAll('button[data-action="detalle"]').forEach(b=> b.addEventListener('click', ()=> openDetalle(b.dataset.id)));
-      cont.querySelectorAll('button[data-action="eliminar"]').forEach(b=> b.addEventListener('click', ()=> eliminarInventario(b.dataset.id)));
     }
-
-    async function eliminarInventario(id){
-      if(!confirm('¿Eliminar este vehículo del inventario?')) return;
-      await fetch('/api/inventario-delete', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id }) });
-      loadInventario();
+    function currentImageSrc(){ return selectedImageDataURL || ($('#f_img').value || '').trim() || null; }
+    function updateFormPreview(){
+      const src = currentImageSrc();
+      const prev = $('#f_preview');
+      if(src){ prev.src = src; prev.classList.remove('hide'); } else { prev.classList.add('hide'); }
     }
-
-    async function openDetalle(id){
-      try{
-        const res = await fetch('/api/inventario-get');
-        const inv = await res.json();
-        const auto = inv.find(a=>a.id===id);
-        if(!auto){ alert('No encontrado'); return; }
-        const gastosRes = await fetch('/api/gastos-get?auto_id='+encodeURIComponent(id));
-        const gastos = await gastosRes.json();
-        const totalGastos = (gastos||[]).reduce((acc,g)=> acc + Number(g.monto||0), 0);
-        views.detalle.innerHTML = `
-          <div class="grid">
-            <div class="card">
-              <div class="row" style="justify-content:space-between">
-                <div><h2 style="margin:0">${auto.marca} ${auto.modelo}</h2><div class="muted">Año ${auto.anio}</div></div>
-                <span class="pill">Inventario</span>
-              </div>
-              <img src="${auto.img||PLACEHOLDER_IMG}" alt="${auto.marca} ${auto.modelo}" style="width:100%;height:220px;object-fit:cover;border-radius:10px;border:1px solid #262a33;background:#0a0a0a"/>
-              <div class="grid" style="margin-top:12px">
-                <div class="form-row">
-                  <div><label>Valor de compra</label><input id="d_compra" type="number" min="0" step="1" value="${(auto.compra ?? '')}" placeholder="CLP"></div>
-                </div>
-                <div class="row"><button class="btn" id="d_guardar_valores">Guardar cambios</button><button class="btn btn-outline" id="d_volver">← Volver</button></div>
-              </div>
-            </div>
-
-            <div class="card">
-              <h3 style="margin-top:0">Gastos</h3>
-              <div class="row" style="justify-content:space-between"><div class="muted">Total gastos: <strong>${fmt(totalGastos)}</strong></div><button class="btn btn-outline" id="d_agregar_gasto">Agregar gasto</button></div>
-              <table class="table" style="margin-top:10px"><thead><tr><th>Nombre</th><th class="right">Monto (CLP)</th><th class="right">Fecha</th></tr></thead><tbody>
-                ${(gastos||[]).map(g=>`<tr><td>${g.nombre}</td><td class="right">${fmt(g.monto)}</td><td class="right">${g.fecha ? new Date(g.fecha).toLocaleDateString('es-CL') : ''}</td></tr>`).join('')}
-              </tbody></table>
-            </div>
-
-            <div class="card">
-              <h3 style="margin-top:0">Acciones</h3>
-              <div class="row" style="gap:8px"><button class="btn btn-danger" id="d_vender">Vender vehículo</button><button class="btn btn-outline" id="d_eliminar">Eliminar del inventario</button></div>
-            </div>
-          </div>`;
-        show('detalle');
-        $('#d_volver').addEventListener('click', ()=>{ show('inventario'); loadInventario(); });
-        $('#d_guardar_valores').addEventListener('click', async ()=>{
-          const compra = Number($('#d_compra').value || 0);
-          await fetch('/api/inventario-update', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id, compra }) });
-          openDetalle(id);
-        });
-        $('#d_agregar_gasto').addEventListener('click', async ()=>{
-          const nombre = prompt('Nombre del gasto:'); if(!nombre) return;
-          const montoStr = prompt('Monto en CLP (solo números):','0'); const monto = Number((montoStr||'').replace(/[^\d]/g,'')); if(!monto || monto<=0){ alert('Monto inválido'); return; }
-          await fetch('/api/gasto-add', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ auto_id:id, nombre, monto, fechaISO: new Date().toISOString() }) });
-          openDetalle(id);
-        });
-        $('#d_eliminar').addEventListener('click', async ()=>{ if(!confirm('¿Eliminar este vehículo?')) return; await fetch('/api/inventario-delete', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id }) }); show('inventario'); loadInventario(); });
-        $('#d_vender').addEventListener('click', async ()=>{
-          if(!auto.compra || auto.compra<=0){ alert('Define el costo de compra antes de vender.'); return; }
-          const ventaStr = prompt('Valor de venta (CLP):','0'); const ventaReal = Number((ventaStr||'').replace(/[^\d]/g,'')); if(!ventaReal || ventaReal<=0){ alert('Valor inválido'); return; }
-          const r = await fetch('/api/vender', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id, venta: ventaReal }) });
-          const data = await r.json(); alert('Vehículo vendido. Ganancia: '+fmt(data.ganancia)); show('vendidos'); loadVendidos();
-        });
-      }catch(e){ alert('Error'); }
-    }
-
-    async function loadVendidos(){
-      try{
-        const res = await fetch('/api/vendidos-list');
-        const payload = await res.json();
-        const vendidos = payload.vendidos || [];
-        const detalleMap = payload.detalle || {};
-        const cont = views.vendidos; cont.className='grid autos'; cont.innerHTML='';
-        if(vendidos.length===0){ cont.innerHTML = '<div class="card"><p class="muted">Aún no registras ventas.</p></div>'; return; }
-        vendidos.forEach(v=>{
-          const card=document.createElement('article'); card.className='auto-card';
-          const imgSrc=v.img || PLACEHOLDER_IMG;
-          const gastosDetalle = detalleMap[v.id] || [];
-          card.innerHTML = `
-            <img class="thumb thumb-sold" src="${imgSrc}" alt="${v.marca} ${v.modelo}">
-            <div class="title">${v.marca} ${v.modelo}</div>
-            <div class="muted">Año ${v.anio}</div>
-            <div class="row" style="justify-content:center; margin-top:10px">
-              <button class="btn btn-outline" data-action="toggle" data-id="${v.id}">Ver venta</button>
-              <button class="btn btn-outline" data-action="eliminar-vendido" data-id="${v.id}">Eliminar</button>
-            </div>
-            <div class="sold-detail hide" id="detail-${v.id}">
-              <div class="detail-grid">
-                <div class="detail-item"><div class="detail-label">Compra</div><div class="detail-value">${fmt(v.compra)}</div></div>
-                <div class="detail-item"><div class="detail-label">Gastos</div><div class="detail-value">${fmt(v.gastos_total)}</div></div>
-                <div class="detail-item"><div class="detail-label">Venta</div><div class="detail-value">${fmt(v.venta)}</div></div>
-                <div class="detail-item"><div class="detail-label">Ganancia</div><div class="detail-value">${fmt(v.ganancia)}</div></div>
-                <div class="detail-item"><div class="detail-label">Fecha</div><div class="detail-value">${new Date(v.fecha_venta).toLocaleDateString('es-CL')}</div></div>
-                <div class="detail-item"><div class="detail-label">ID</div><div class="detail-value">${v.id}</div></div>
-              </div>
-              <div class="card" style="margin-top:10px">
-                <h4 style="margin:0 0 8px 0">Detalle de gastos</h4>
-                ${ (gastosDetalle && gastosDetalle.length>0) ? `
-                  <table class="table">
-                    <thead><tr><th>Nombre</th><th class="right">Monto (CLP)</th><th class="right">Fecha</th></tr></thead>
-                    <tbody>
-                      ${gastosDetalle.map(g=>`
-                        <tr><td>${g.nombre}</td><td class=\"right\">${fmt(g.monto)}</td><td class=\"right\">${g.fecha?new Date(g.fecha).toLocaleDateString('es-CL'):''}</td></tr>
-                      `).join('')}
-                    </tbody>
-                  </table>` : `<p class="muted">Sin gastos registrados.</p>` }
-              </div>
-            </div>`;
-          cont.appendChild(card);
-        });
-        cont.querySelectorAll('button[data-action="toggle"]').forEach(btn=>{
-          btn.addEventListener('click', ()=>{
-            const id=btn.getAttribute('data-id');
-            const panel=document.getElementById('detail-'+id);
-            panel.classList.toggle('hide');
-            btn.textContent = panel.classList.contains('hide') ? 'Ver venta' : 'Ocultar';
-          });
-        });
-        cont.querySelectorAll('button[data-action="eliminar-vendido"]').forEach(btn=>{
-          btn.addEventListener('click', async ()=>{
-            const id=btn.getAttribute('data-id');
-            if(!confirm('¿Eliminar este registro de vendido?')) return;
-            await fetch('/api/vendidos-delete', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id }) });
-            loadVendidos();
-          });
-        });
-      }catch(e){ views.vendidos.innerHTML = '<div class="card"><p class="muted">Error cargando vendidos.</p></div>'; }
-    }
-
-    async function altaVehiculo(){
-      const marca=$('#f_marca').value.trim(); const modelo=$('#f_modelo').value.trim(); const anio=Number($('#f_anio').value); const compra=Number($('#f_compra').value||0);
-      if(!marca||!modelo||!anio){ alert('Marca, modelo y año son obligatorios'); return; }
-      if(!compra||compra<=0){ alert('Debes indicar un costo de compra válido (> 0).'); return; }
-      const img=await getSelectedImage(); const id=uid();
-      await fetch('/api/inventario-add', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id, marca, modelo, anio, compra, img }) });
-      resetForm(); views.form.classList.add('hide'); show('inventario'); loadInventario();
-    }
-
-    function resetForm(){ $('#f_marca').value=''; $('#f_modelo').value=''; $('#f_anio').value=''; $('#f_compra').value=''; $('#f_img').value=''; $('#f_img_file').value=''; }
-    $('#f_cancelar').addEventListener('click', ()=>{ views.form.classList.add('hide'); show('inventario'); });
-    document.getElementById('f_guardar').addEventListener('click', altaVehiculo);
+    $('#f_img_file').addEventListener('change', async () => {
+      const file = $('#f_img_file').files[0];
+      if(!file){ selectedImageDataURL = null; updateFormPreview(); return; }
+      try{ selectedImageDataURL = await resizeImageFile(file); }
+      catch(e){ selectedImageDataURL = null; toast('No se pudo procesar la imagen', 'error'); }
+      updateFormPreview();
+    });
+    $('#f_img').addEventListener('input', () => { selectedImageDataURL = null; updateFormPreview(); });
 
     const PLACEHOLDER_IMG = 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
       <svg xmlns="http://www.w3.org/2000/svg" width="800" height="400">
-        <defs><linearGradient id="g" x1="0" x2="1" y1="0" y2="1"><stop offset="0%" stop-color="#0e1013"/><stop offset="100%" stop-color="#1a1d22"/></linearGradient></defs>
+        <defs><linearGradient id="g" x1="0" x2="1" y1="0" y2="1"><stop offset="0%" stop-color="#12141a"/><stop offset="100%" stop-color="#1c1f26"/></linearGradient></defs>
         <rect width="100%" height="100%" fill="url(#g)"/>
-        <g fill="#2ee6c5" opacity="0.9"><rect x="80" y="200" width="640" height="35" rx="8"/><circle cx="200" cy="260" r="28"/><circle cx="600" cy="260" r="28"/><rect x="160" y="160" width="480" height="40" rx="8"/></g>
-        <text x="50%" y="60%" font-size="22" text-anchor="middle" fill="#9aa0a6" font-family="Segoe UI, Roboto">Imagen no disponible</text>
+        <g fill="#2ee6c5" opacity="0.85"><rect x="80" y="200" width="640" height="35" rx="8"/><circle cx="200" cy="260" r="28"/><circle cx="600" cy="260" r="28"/><rect x="160" y="160" width="480" height="40" rx="8"/></g>
+        <text x="50%" y="60%" font-size="22" text-anchor="middle" fill="#9aa3ad" font-family="Segoe UI, Roboto">Imagen no disponible</text>
       </svg>`);
 
-    // Inicial
-    loadInventario(); show('inventario');
-    if('serviceWorker' in navigator){ window.addEventListener('load', ()=>{ navigator.serviceWorker.register('sw.js').catch(console.warn); }); }
+    /* ===================== Estados de carga / vacío / error ===================== */
+    function skeletonCards(n=4){
+      return Array.from({length:n}).map(() => `
+        <div class="auto-card">
+          <div class="skel-block" style="width:140px;height:140px;border-radius:50%;margin:4px auto 12px"></div>
+          <div class="skel-block" style="height:14px;width:70%;margin:0 auto 8px"></div>
+          <div class="skel-block" style="height:11px;width:40%;margin:0 auto"></div>
+        </div>`).join('');
+    }
+    function emptyState(iconSvg, title, subtitle){
+      return `<div class="empty-state" style="grid-column:1/-1">${iconSvg}<h3>${title}</h3><p>${subtitle}</p></div>`;
+    }
+    function errorState(message, retryFn){
+      const box = document.createElement('div');
+      box.className = 'card';
+      box.style.gridColumn = '1/-1';
+      box.innerHTML = `<p class="muted" style="margin-bottom:12px">${message}</p><button class="btn btn-outline" id="retryBtn">Reintentar</button>`;
+      box.querySelector('#retryBtn').addEventListener('click', retryFn);
+      return box;
+    }
+    const ICON_CAR = '<svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17h14M5 17a2 2 0 1 1-4 0 2 2 0 0 1 4 0Zm14 0a2 2 0 1 0 4 0 2 2 0 0 0-4 0ZM3 17V11l2-5h14l2 5v6"/><path d="M5 11h14"/></svg>';
+    const ICON_SOLD = '<svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-4 4"/></svg>';
+
+    /* ===================== Inventario ===================== */
+    let inventarioCache = [];
+    async function loadInventario(){
+      $('#inventario-grid').innerHTML = skeletonCards();
+      try{
+        inventarioCache = await api('/api/inventario-get');
+        renderInventario();
+      } catch(e){
+        const grid = $('#inventario-grid'); grid.innerHTML = '';
+        grid.appendChild(errorState('No se pudo cargar el inventario. Revisa tu conexión.', loadInventario));
+      }
+    }
+    function renderInventario(){
+      const q = ($('#inv-search').value || '').toLowerCase().trim();
+      const list = !q ? inventarioCache : inventarioCache.filter(a => `${a.marca} ${a.modelo} ${a.anio}`.toLowerCase().includes(q));
+      $('#inv-count').textContent = inventarioCache.length ? `${list.length} de ${inventarioCache.length}` : '';
+      const cont = $('#inventario-grid'); cont.innerHTML = '';
+      if(inventarioCache.length === 0){
+        cont.innerHTML = emptyState(ICON_CAR, 'Sin vehículos en inventario', 'Usa "Menú → Agregar vehículo" para registrar tu primera compra.');
+        return;
+      }
+      if(list.length === 0){
+        cont.innerHTML = emptyState(ICON_CAR, 'Sin resultados', 'No hay vehículos que coincidan con tu búsqueda.');
+        return;
+      }
+      list.forEach(auto => {
+        const card = document.createElement('article'); card.className = 'auto-card';
+        card.innerHTML = `
+          <img class="thumb" src="${auto.img || PLACEHOLDER_IMG}" alt="${auto.marca} ${auto.modelo}">
+          <div class="title">${auto.marca} ${auto.modelo}</div>
+          <div class="muted">Año ${auto.anio}</div>
+          <div class="price-tag">Compra ${fmt(auto.compra)}</div>
+          <div class="row" style="justify-content:center; margin-top:14px">
+            <button class="btn btn-outline btn-sm" data-action="detalle" data-id="${auto.id}">Ver detalle</button>
+            <button class="icon-btn danger" data-action="eliminar" data-id="${auto.id}" aria-label="Eliminar">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+            </button>
+          </div>`;
+        cont.appendChild(card);
+      });
+      cont.querySelectorAll('[data-action="detalle"]').forEach(b => b.addEventListener('click', () => openDetalle(b.dataset.id)));
+      cont.querySelectorAll('[data-action="eliminar"]').forEach(b => b.addEventListener('click', () => eliminarInventario(b.dataset.id)));
+    }
+    $('#inv-search').addEventListener('input', renderInventario);
+
+    async function eliminarInventario(id){
+      const ok = await confirmDialog('Eliminar vehículo', '¿Eliminar este vehículo del inventario? Esta acción no se puede deshacer.', { danger:true, confirmLabel:'Eliminar' });
+      if(!ok) return;
+      try{ await api('/api/inventario-delete', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id }) }); toast('Vehículo eliminado'); loadInventario(); }
+      catch(e){ toast('No se pudo eliminar: ' + e.message, 'error'); }
+    }
+
+    /* ===================== Detalle de inventario ===================== */
+    async function openDetalle(id){
+      try{
+        const [inv, gastos] = await Promise.all([
+          api('/api/inventario-get'),
+          api('/api/gastos-get?auto_id=' + encodeURIComponent(id))
+        ]);
+        const auto = inv.find(a => a.id === id);
+        if(!auto){ toast('Vehículo no encontrado', 'error'); return; }
+        renderDetalle(auto, gastos || []);
+        show('detalle');
+      } catch(e){ toast('No se pudo cargar el detalle: ' + e.message, 'error'); }
+    }
+
+    function renderDetalle(auto, gastos){
+      const totalGastos = gastos.reduce((acc,g) => acc + Number(g.monto || 0), 0);
+      const costoTotal = Number(auto.compra || 0) + totalGastos;
+      views.detalle.innerHTML = `
+        <div class="stack">
+          <div class="card">
+            <div class="row" style="justify-content:space-between; margin-bottom:14px">
+              <button class="btn btn-outline btn-sm" id="d_volver">← Volver</button>
+              <span class="pill">En inventario</span>
+            </div>
+            <img class="detail-hero" src="${auto.img || PLACEHOLDER_IMG}" alt="${auto.marca} ${auto.modelo}">
+            <div class="stack" style="margin-top:16px">
+              <div class="form-row">
+                <div class="field"><label>Marca</label><input id="d_marca" type="text" value="${(auto.marca||'').replace(/"/g,'&quot;')}"></div>
+                <div class="field"><label>Modelo</label><input id="d_modelo" type="text" value="${(auto.modelo||'').replace(/"/g,'&quot;')}"></div>
+              </div>
+              <div class="form-row">
+                <div class="field"><label>Año</label><input id="d_anio" type="number" min="1950" max="2099" value="${auto.anio}"></div>
+                <div class="field"><label>Valor de compra (CLP)</label><input id="d_compra" type="number" min="0" step="1" value="${auto.compra ?? ''}"></div>
+              </div>
+              <div class="field"><label>URL de imagen</label><input id="d_img" type="url" value="${(auto.img||'').replace(/"/g,'&quot;')}" placeholder="https://..."></div>
+              <button class="btn btn-block" id="d_guardar_valores">Guardar cambios</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="row" style="justify-content:space-between; margin-bottom:12px">
+              <h3>Gastos</h3>
+              <button class="btn btn-outline btn-sm" id="d_agregar_gasto">+ Agregar gasto</button>
+            </div>
+            <div class="detail-grid" style="margin-bottom:14px">
+              <div class="detail-item"><div class="detail-label">Compra</div><div class="detail-value">${fmt(auto.compra)}</div></div>
+              <div class="detail-item"><div class="detail-label">Gastos</div><div class="detail-value">${fmt(totalGastos)}</div></div>
+              <div class="detail-item"><div class="detail-label">Costo total</div><div class="detail-value">${fmt(costoTotal)}</div></div>
+            </div>
+            ${gastos.length === 0 ? '<p class="muted">Aún no registras gastos para este vehículo.</p>' : `
+              <table class="table">
+                <thead><tr><th>Nombre</th><th class="right">Monto</th><th class="right">Fecha</th><th class="right">Acciones</th></tr></thead>
+                <tbody>
+                  ${gastos.map(g => `
+                    <tr>
+                      <td>${g.nombre}</td>
+                      <td class="right">${fmt(g.monto)}</td>
+                      <td class="right">${fechaCL(g.fecha)}</td>
+                      <td class="right">
+                        <div class="row-actions">
+                          <button class="icon-btn" data-action="editar-gasto" data-id="${g.id}" aria-label="Editar gasto">
+                            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                          </button>
+                          <button class="icon-btn danger" data-action="eliminar-gasto" data-id="${g.id}" aria-label="Eliminar gasto">
+                            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>`).join('')}
+                </tbody>
+              </table>`}
+          </div>
+
+          <div class="card">
+            <h3 style="margin-bottom:12px">Acciones</h3>
+            <div class="row" style="gap:10px">
+              <button class="btn btn-danger" id="d_vender">Vender vehículo</button>
+              <button class="btn btn-danger-outline" id="d_eliminar">Eliminar del inventario</button>
+            </div>
+          </div>
+        </div>`;
+
+      $('#d_volver').addEventListener('click', () => { show('inventario'); loadInventario(); });
+
+      $('#d_guardar_valores').addEventListener('click', async () => {
+        const marca = $('#d_marca').value.trim();
+        const modelo = $('#d_modelo').value.trim();
+        const anio = Number($('#d_anio').value);
+        const compra = Number($('#d_compra').value || 0);
+        const img = $('#d_img').value.trim() || null;
+        if(!marca){ shake($('#d_marca')); return; }
+        if(!modelo){ shake($('#d_modelo')); return; }
+        if(!anio){ shake($('#d_anio')); return; }
+        if(!compra || compra <= 0){ shake($('#d_compra')); return; }
+        try{
+          await api('/api/inventario-update', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id: auto.id, marca, modelo, anio, compra, img }) });
+          toast('Cambios guardados');
+          openDetalle(auto.id);
+        } catch(e){ toast('No se pudo guardar: ' + e.message, 'error'); }
+      });
+
+      $('#d_agregar_gasto').addEventListener('click', async () => {
+        const data = await gastoModal();
+        if(!data) return;
+        try{
+          await api('/api/gasto-add', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ auto_id: auto.id, ...data }) });
+          toast('Gasto agregado');
+          openDetalle(auto.id);
+        } catch(e){ toast('No se pudo agregar el gasto: ' + e.message, 'error'); }
+      });
+
+      views.detalle.querySelectorAll('[data-action="editar-gasto"]').forEach(b => b.addEventListener('click', async () => {
+        const g = gastos.find(x => x.id === b.dataset.id);
+        const data = await gastoModal(g);
+        if(!data) return;
+        try{
+          await api('/api/gasto-update', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id: g.id, ...data }) });
+          toast('Gasto actualizado');
+          openDetalle(auto.id);
+        } catch(e){ toast('No se pudo actualizar: ' + e.message, 'error'); }
+      }));
+
+      views.detalle.querySelectorAll('[data-action="eliminar-gasto"]').forEach(b => b.addEventListener('click', async () => {
+        const ok = await confirmDialog('Eliminar gasto', '¿Eliminar este gasto del registro?', { danger:true, confirmLabel:'Eliminar' });
+        if(!ok) return;
+        try{
+          await api('/api/gasto-delete', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id: b.dataset.id }) });
+          toast('Gasto eliminado');
+          openDetalle(auto.id);
+        } catch(e){ toast('No se pudo eliminar: ' + e.message, 'error'); }
+      }));
+
+      $('#d_eliminar').addEventListener('click', () => eliminarInventarioDesdeDetalle(auto.id));
+
+      $('#d_vender').addEventListener('click', async () => {
+        if(!auto.compra || auto.compra <= 0){ toast('Define un costo de compra válido antes de vender.', 'error'); return; }
+        const venta = await ventaModal({ compra: auto.compra, gastosTotal: totalGastos });
+        if(venta == null) return;
+        try{
+          const data = await api('/api/vender', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id: auto.id, venta }) });
+          toast('Vehículo vendido. Ganancia: ' + fmt(data.ganancia));
+          show('vendidos'); loadVendidos();
+        } catch(e){ toast('No se pudo registrar la venta: ' + e.message, 'error'); }
+      });
+    }
+
+    async function eliminarInventarioDesdeDetalle(id){
+      const ok = await confirmDialog('Eliminar vehículo', '¿Eliminar este vehículo del inventario? Esta acción no se puede deshacer.', { danger:true, confirmLabel:'Eliminar' });
+      if(!ok) return;
+      try{ await api('/api/inventario-delete', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id }) }); toast('Vehículo eliminado'); show('inventario'); loadInventario(); }
+      catch(e){ toast('No se pudo eliminar: ' + e.message, 'error'); }
+    }
+
+    /* ===================== Vendidos ===================== */
+    let vendidosCache = { vendidos:[], detalle:{} };
+    async function loadVendidos(){
+      $('#vendidos-grid').innerHTML = skeletonCards();
+      try{
+        const payload = await api('/api/vendidos-list');
+        vendidosCache = { vendidos: payload.vendidos || [], detalle: payload.detalle || {} };
+        renderStats();
+        renderVendidos();
+      } catch(e){
+        $('#ven-stats').innerHTML = '';
+        const grid = $('#vendidos-grid'); grid.innerHTML = '';
+        grid.appendChild(errorState('No se pudo cargar el historial de ventas.', loadVendidos));
+      }
+    }
+    function renderStats(){
+      const vendidos = vendidosCache.vendidos;
+      const el = $('#ven-stats');
+      if(vendidos.length === 0){ el.innerHTML = ''; return; }
+      const n = vendidos.length;
+      const totalGanancia = vendidos.reduce((a,v) => a + Number(v.ganancia||0), 0);
+      const margenProm = vendidos.reduce((a,v) => a + (v.venta ? Number(v.ganancia)/Number(v.venta) : 0), 0) / n * 100;
+      el.innerHTML = `
+        <div class="stat-tile"><span class="stat-label">Vendidos</span><span class="stat-value">${n}</span></div>
+        <div class="stat-tile"><span class="stat-label">Ganancia total</span><span class="stat-value ${totalGanancia>=0?'positive':'negative'}">${fmt(totalGanancia)}</span></div>
+        <div class="stat-tile"><span class="stat-label">Ganancia promedio</span><span class="stat-value">${fmt(totalGanancia/n)}</span></div>
+        <div class="stat-tile"><span class="stat-label">Margen promedio</span><span class="stat-value">${margenProm.toFixed(1)}%</span></div>
+      `;
+    }
+    function renderVendidos(){
+      const q = ($('#ven-search').value || '').toLowerCase().trim();
+      const vendidos = vendidosCache.vendidos;
+      const list = !q ? vendidos : vendidos.filter(v => `${v.marca} ${v.modelo} ${v.anio}`.toLowerCase().includes(q));
+      $('#ven-count').textContent = vendidos.length ? `${list.length} de ${vendidos.length}` : '';
+      const cont = $('#vendidos-grid'); cont.innerHTML = '';
+      if(vendidos.length === 0){
+        cont.innerHTML = emptyState(ICON_SOLD, 'Aún no registras ventas', 'Cuando vendas un vehículo del inventario, aparecerá aquí con su desglose completo.');
+        return;
+      }
+      if(list.length === 0){
+        cont.innerHTML = emptyState(ICON_SOLD, 'Sin resultados', 'No hay ventas que coincidan con tu búsqueda.');
+        return;
+      }
+      list.forEach(v => {
+        const gastosDetalle = vendidosCache.detalle[v.id] || [];
+        const card = document.createElement('article'); card.className = 'auto-card';
+        card.innerHTML = `
+          <img class="thumb thumb-sold" src="${v.img || PLACEHOLDER_IMG}" alt="${v.marca} ${v.modelo}">
+          <div class="title">${v.marca} ${v.modelo}</div>
+          <div class="muted">Año ${v.anio}</div>
+          <div class="price-tag" style="color:var(--success);background:rgba(87,227,137,.12)">Ganancia ${fmt(v.ganancia)}</div>
+          <div class="row" style="justify-content:center; margin-top:14px">
+            <button class="btn btn-outline btn-sm" data-action="toggle" data-id="${v.id}">Ver venta</button>
+            <button class="icon-btn danger" data-action="eliminar-vendido" data-id="${v.id}" aria-label="Eliminar registro">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+            </button>
+          </div>
+          <div class="sold-detail hide" id="detail-${v.id}">
+            <div class="detail-grid">
+              <div class="detail-item"><div class="detail-label">Compra</div><div class="detail-value">${fmt(v.compra)}</div></div>
+              <div class="detail-item"><div class="detail-label">Gastos</div><div class="detail-value">${fmt(v.gastos_total)}</div></div>
+              <div class="detail-item"><div class="detail-label">Venta</div><div class="detail-value">${fmt(v.venta)}</div></div>
+              <div class="detail-item"><div class="detail-label">Ganancia</div><div class="detail-value ${v.ganancia>=0?'positive':'negative'}">${fmt(v.ganancia)}</div></div>
+              <div class="detail-item"><div class="detail-label">Fecha de venta</div><div class="detail-value">${fechaCL(v.fecha_venta)}</div></div>
+            </div>
+            <div class="card" style="margin-top:12px; text-align:left">
+              <h4 style="margin-bottom:8px">Detalle de gastos</h4>
+              ${gastosDetalle.length > 0 ? `
+                <table class="table">
+                  <thead><tr><th>Nombre</th><th class="right">Monto</th><th class="right">Fecha</th></tr></thead>
+                  <tbody>
+                    ${gastosDetalle.map(g => `<tr><td>${g.nombre}</td><td class="right">${fmt(g.monto)}</td><td class="right">${fechaCL(g.fecha)}</td></tr>`).join('')}
+                  </tbody>
+                </table>` : '<p class="muted">Sin gastos registrados.</p>'}
+            </div>
+          </div>`;
+        cont.appendChild(card);
+      });
+      cont.querySelectorAll('[data-action="toggle"]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const panel = document.getElementById('detail-' + btn.dataset.id);
+          panel.classList.toggle('hide');
+          btn.textContent = panel.classList.contains('hide') ? 'Ver venta' : 'Ocultar';
+        });
+      });
+      cont.querySelectorAll('[data-action="eliminar-vendido"]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const ok = await confirmDialog('Eliminar registro', '¿Eliminar este registro de venta? Esta acción no se puede deshacer.', { danger:true, confirmLabel:'Eliminar' });
+          if(!ok) return;
+          try{ await api('/api/vendidos-delete', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id: btn.dataset.id }) }); toast('Registro eliminado'); loadVendidos(); }
+          catch(e){ toast('No se pudo eliminar: ' + e.message, 'error'); }
+        });
+      });
+    }
+    $('#ven-search').addEventListener('input', renderVendidos);
+
+    $('#ven-export').addEventListener('click', () => {
+      const vendidos = vendidosCache.vendidos;
+      if(vendidos.length === 0){ toast('No hay ventas para exportar', 'error'); return; }
+      const header = ['Marca','Modelo','Año','Compra','Gastos','Venta','Ganancia','Fecha de venta'];
+      const rows = vendidos.map(v => [v.marca, v.modelo, v.anio, v.compra, v.gastos_total, v.venta, v.ganancia, fechaCL(v.fecha_venta)]);
+      const csv = [header, ...rows].map(r => r.map(csvEscape).join(',')).join('\r\n');
+      const blob = new Blob(['﻿' + csv], { type:'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'maicars-ventas-' + todayISODate() + '.csv';
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+    });
+
+    /* ===================== Alta de vehículo ===================== */
+    async function altaVehiculo(){
+      const marca = $('#f_marca').value.trim();
+      const modelo = $('#f_modelo').value.trim();
+      const anio = Number($('#f_anio').value);
+      const compra = Number($('#f_compra').value || 0);
+      if(!marca){ shake($('#f_marca')); return; }
+      if(!modelo){ shake($('#f_modelo')); return; }
+      if(!anio){ shake($('#f_anio')); return; }
+      if(!compra || compra <= 0){ shake($('#f_compra')); return; }
+      const img = currentImageSrc();
+      const id = uid();
+      const btn = $('#f_guardar'); btn.disabled = true;
+      try{
+        await api('/api/inventario-add', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id, marca, modelo, anio, compra, img }) });
+        toast('Vehículo agregado al inventario');
+        resetForm(); show('inventario'); loadInventario();
+      } catch(e){ toast('No se pudo guardar: ' + e.message, 'error'); }
+      finally{ btn.disabled = false; }
+    }
+    function resetForm(){
+      $('#f_marca').value = ''; $('#f_modelo').value = ''; $('#f_anio').value = ''; $('#f_compra').value = '';
+      $('#f_img').value = ''; $('#f_img_file').value = ''; selectedImageDataURL = null;
+      $('#f_preview').classList.add('hide');
+    }
+    $('#f_cancelar').addEventListener('click', () => { resetForm(); show('inventario'); });
+    $('#f_guardar').addEventListener('click', altaVehiculo);
+
+    /* ===================== Inicio ===================== */
+    loadInventario();
+    show('inventario');
+    if('serviceWorker' in navigator){
+      window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(console.warn); });
+    }
   </script>
 </body>
 </html>

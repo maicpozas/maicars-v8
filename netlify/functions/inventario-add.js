@@ -1,4 +1,3 @@
-\
 import { neon } from '@netlify/neon';
 
 export default async (req) => {
