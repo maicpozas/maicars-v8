@@ -902,9 +902,55 @@
     $('#f_cancelar').addEventListener('click', () => { resetForm(); show('inventario'); });
     $('#f_guardar').addEventListener('click', altaVehiculo);
 
+    /* ===================== Migración de datos locales (versión anterior) ===================== */
+    async function checkLegacyMigration(){
+      let legacyInv = [], legacyVen = [];
+      try{ legacyInv = JSON.parse(localStorage.getItem('inventario_autos_v4') || '[]'); }catch(e){ legacyInv = []; }
+      try{ legacyVen = JSON.parse(localStorage.getItem('autos_vendidos_v4') || '[]'); }catch(e){ legacyVen = []; }
+      if((!legacyInv || legacyInv.length === 0) && (!legacyVen || legacyVen.length === 0)) return;
+
+      const ok = await confirmDialog(
+        'Datos encontrados en este dispositivo',
+        `Encontramos ${legacyInv.length} vehículo(s) en inventario y ${legacyVen.length} venta(s) guardados localmente en este dispositivo (de la versión anterior de la app). ¿Quieres importarlos ahora a la nube?`,
+        { confirmLabel:'Importar' }
+      );
+      if(!ok) return;
+
+      try{
+        let importadosInv = 0, importadosVen = 0;
+        if(legacyInv.length){
+          const payload = legacyInv.map(a => ({
+            marca: a.marca, modelo: a.modelo, anio: a.anio, compra: a.compra, img: a.img || null,
+            gastos: (a.gastos || a.gastosDetalle || []).map(g => ({ nombre: g.nombre, monto: g.monto, fecha: g.fecha }))
+          }));
+          const r = await api('/api/inventario-import', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ vehiculos: payload }) });
+          importadosInv = r.importados || 0;
+        }
+        if(legacyVen.length){
+          const payload = legacyVen.map(v => ({
+            marca: v.marca, modelo: v.modelo, anio: v.anio, compra: v.compra, venta: v.venta,
+            gastosTotal: v.gastosTotal, fechaVenta: v.fechaVenta, img: v.img || null,
+            gastosDetalle: (v.gastosDetalle || []).map(g => ({ nombre: g.nombre, monto: g.monto, fecha: g.fecha }))
+          }));
+          const r = await api('/api/vendidos-import', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ vendidos: payload }) });
+          importadosVen = r.importados || 0;
+        }
+        // Se conservan con otro nombre por seguridad, en vez de borrarlos, hasta confirmar que todo llegó bien.
+        if(legacyInv.length) localStorage.setItem('inventario_autos_v4_migrado', JSON.stringify(legacyInv));
+        if(legacyVen.length) localStorage.setItem('autos_vendidos_v4_migrado', JSON.stringify(legacyVen));
+        localStorage.removeItem('inventario_autos_v4');
+        localStorage.removeItem('autos_vendidos_v4');
+        toast(`Importados ${importadosInv} vehículo(s) y ${importadosVen} venta(s) desde este dispositivo`);
+        loadInventario();
+      } catch(e){
+        toast('No se pudo completar la importación: ' + e.message, 'error');
+      }
+    }
+
     /* ===================== Inicio ===================== */
     loadInventario();
     show('inventario');
+    checkLegacyMigration();
     if('serviceWorker' in navigator){
       window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(console.warn); });
     }
