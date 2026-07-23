@@ -43,8 +43,19 @@ export function isAuthenticated(req) {
   return true;
 }
 
-export function checkPassword(input) {
-  const real = process.env.APP_PASSWORD;
-  if (!real || !input) return false;
-  return timingSafeEqual(input, real);
+export function hashPassword(password) {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.scryptSync(password, salt, 64).toString('hex');
+  return `${salt}:${hash}`;
+}
+
+export function verifyPassword(password, stored) {
+  if (!stored || !password) return false;
+  const [salt, hash] = stored.split(':');
+  if (!salt || !hash) return false;
+  const testHash = crypto.scryptSync(password, salt, 64).toString('hex');
+  const a = Buffer.from(hash, 'hex');
+  const b = Buffer.from(testHash, 'hex');
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
 }

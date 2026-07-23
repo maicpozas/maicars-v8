@@ -232,6 +232,19 @@
         <div class="field"><label>Contraseña</label><input id="login_password" type="password" placeholder="••••••••" autocomplete="current-password"></div>
         <button class="btn btn-block" id="login_submit" style="margin-top:14px">Ingresar</button>
         <p class="faint" id="login_error" style="text-align:center; margin-top:10px; min-height:1em; color:var(--danger)"></p>
+        <button class="btn btn-outline btn-block btn-sm" id="login_forgot" style="margin-top:4px">¿Olvidaste tu contraseña?</button>
+      </div>
+    </section>
+
+    <!-- Restablecer contraseña -->
+    <section id="view-reset" class="hide" aria-label="Restablecer contraseña" style="min-height:calc(100vh - 140px); display:grid; place-items:center">
+      <div class="card" style="max-width:360px; width:100%">
+        <h2 style="text-align:center; margin-bottom:6px">Nueva contraseña</h2>
+        <p class="muted" style="text-align:center; margin:6px 0 18px">Elige una nueva contraseña para MaiCars</p>
+        <div class="field"><label>Nueva contraseña</label><input id="reset_password" type="password" placeholder="Mínimo 6 caracteres" autocomplete="new-password"></div>
+        <div class="field" style="margin-top:12px"><label>Confirmar contraseña</label><input id="reset_password2" type="password" placeholder="Repite la contraseña" autocomplete="new-password"></div>
+        <button class="btn btn-block" id="reset_submit" style="margin-top:14px">Guardar nueva contraseña</button>
+        <p class="faint" id="reset_error" style="text-align:center; margin-top:10px; min-height:1em; color:var(--danger)"></p>
       </div>
     </section>
 
@@ -534,11 +547,11 @@
       toast('Sesión cerrada');
     });
 
-    const views = { login: $('#view-login'), form: $('#view-form'), inventario: $('#view-inventario'), detalle: $('#view-detalle'), vendidos: $('#view-vendidos') };
+    const views = { login: $('#view-login'), reset: $('#view-reset'), form: $('#view-form'), inventario: $('#view-inventario'), detalle: $('#view-detalle'), vendidos: $('#view-vendidos') };
     function show(viewName){
       Object.values(views).forEach(v => v.classList.add('hide'));
       views[viewName].classList.remove('hide');
-      $('.app-actions').classList.toggle('hide', viewName === 'login');
+      $('.app-actions').classList.toggle('hide', viewName === 'login' || viewName === 'reset');
       window.scrollTo({top:0, behavior:'smooth'});
     }
 
@@ -1045,8 +1058,70 @@
     $('#login_submit').addEventListener('click', doLogin);
     $('#login_password').addEventListener('keydown', (e) => { if(e.key === 'Enter') doLogin(); });
 
+    function forgotPasswordModal(){
+      return new Promise(resolve => {
+        let settled = false;
+        const finish = (v) => { if(settled) return; settled = true; resolve(v); };
+        activeOnClose = () => finish(null);
+        showModal({
+          title:'Recuperar contraseña',
+          bodyHTML: `
+            <p class="muted" style="margin:0">Ingresa el correo asociado a tu cuenta. Si es correcto, te enviaremos un enlace para elegir una nueva contraseña.</p>
+            <div class="field"><label>Correo</label><input id="m_email" type="email" placeholder="tu@correo.com"></div>
+          `,
+          buttons: [
+            { label:'Cancelar', className:'btn btn-outline', onClick: () => finish(null) },
+            { label:'Enviar enlace', className:'btn', onClick: (root) => {
+                const email = $('#m_email', root).value.trim();
+                if(!email || !email.includes('@')){ shake($('#m_email', root)); return false; }
+                finish(email);
+              } }
+          ]
+        });
+      });
+    }
+    $('#login_forgot').addEventListener('click', async () => {
+      const email = await forgotPasswordModal();
+      if(!email) return;
+      try{
+        await fetch('/api/forgot-password', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ email }) });
+        toast('Si el correo es correcto, revisa tu bandeja de entrada (y spam).');
+      } catch(e){ toast('No se pudo enviar la solicitud.', 'error'); }
+    });
+
+    function wireResetForm(token){
+      $('#reset_submit').addEventListener('click', async () => {
+        const p1 = $('#reset_password').value;
+        const p2 = $('#reset_password2').value;
+        $('#reset_error').textContent = '';
+        if(!p1 || p1.length < 6){ shake($('#reset_password')); $('#reset_error').textContent = 'La contraseña debe tener al menos 6 caracteres.'; return; }
+        if(p1 !== p2){ shake($('#reset_password2')); $('#reset_error').textContent = 'Las contraseñas no coinciden.'; return; }
+        const btn = $('#reset_submit'); btn.disabled = true;
+        try{
+          const res = await fetch('/api/reset-password', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ token, newPassword: p1 }) });
+          if(!res.ok){
+            const t = await res.text().catch(()=> '');
+            $('#reset_error').textContent = t || 'El enlace no es válido o expiró.';
+            return;
+          }
+          history.replaceState(null, '', location.pathname);
+          toast('Contraseña actualizada. Ya puedes iniciar sesión.');
+          show('login');
+          $('#login_password').focus();
+        } catch(e){
+          $('#reset_error').textContent = 'No se pudo conectar con el servidor.';
+        } finally{ btn.disabled = false; }
+      });
+    }
+
     /* ===================== Inicio ===================== */
     (async () => {
+      const resetToken = new URLSearchParams(location.search).get('reset');
+      if(resetToken){
+        show('reset');
+        wireResetForm(resetToken);
+        return;
+      }
       const authed = await checkSession();
       if(authed){ startApp(); }
       else { show('login'); $('#login_password').focus(); }
