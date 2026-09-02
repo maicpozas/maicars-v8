@@ -14,11 +14,11 @@ function timingSafeEqual(a, b) {
   return crypto.timingSafeEqual(bufA, bufB);
 }
 
-export function createSessionCookie() {
+export function createSessionCookie(userId) {
   const secret = process.env.AUTH_SECRET;
-  const expiry = String(Date.now() + MAX_AGE * 1000);
-  const sig = sign(expiry, secret);
-  const token = encodeURIComponent(`${expiry}.${sig}`);
+  const payload = Buffer.from(JSON.stringify({ uid: userId, exp: Date.now() + MAX_AGE * 1000 })).toString('base64url');
+  const sig = sign(payload, secret);
+  const token = `${payload}.${sig}`;
   return `${COOKIE_NAME}=${token}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${MAX_AGE}`;
 }
 
@@ -26,21 +26,29 @@ export function clearSessionCookie() {
   return `${COOKIE_NAME}=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0`;
 }
 
+/**
+ * Devuelve el user_id de la sesión válida, o null si no hay sesión
+ * (falta cookie, firma inválida, o expiró).
+ */
 export function isAuthenticated(req) {
   const secret = process.env.AUTH_SECRET;
-  if (!secret) return false;
+  if (!secret) return null;
   const cookieHeader = req.headers.get('cookie') || '';
   const match = cookieHeader.match(new RegExp(COOKIE_NAME + '=([^;]+)'));
-  if (!match) return false;
+  if (!match) return null;
   const raw = decodeURIComponent(match[1]);
   const dot = raw.lastIndexOf('.');
-  if (dot === -1) return false;
-  const expiry = raw.slice(0, dot);
+  if (dot === -1) return null;
+  const payload = raw.slice(0, dot);
   const sig = raw.slice(dot + 1);
-  if (!expiry || !sig || !/^\d+$/.test(expiry)) return false;
-  if (!timingSafeEqual(sign(expiry, secret), sig)) return false;
-  if (Number(expiry) < Date.now()) return false;
-  return true;
+  if (!payload || !sig) return null;
+  if (!timingSafeEqual(sign(payload, secret), sig)) return null;
+  let data;
+  try { data = JSON.parse(Buffer.from(payload, 'base64url').toString()); }
+  catch (e) { return null; }
+  if (!data || !data.uid || !data.exp) return null;
+  if (Number(data.exp) < Date.now()) return null;
+  return data.uid;
 }
 
 export function hashPassword(password) {
@@ -58,4 +66,12 @@ export function verifyPassword(password, stored) {
   const b = Buffer.from(testHash, 'hex');
   if (a.length !== b.length) return false;
   return crypto.timingSafeEqual(a, b);
+}
+
+export function normalizeEmail(email) {
+  return String(email || '').trim().toLowerCase();
+}
+
+export function isValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }

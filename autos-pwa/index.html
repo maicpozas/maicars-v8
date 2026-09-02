@@ -192,6 +192,7 @@
       Mai<span>Cars</span>
     </div>
     <div class="app-actions">
+      <span class="chip hide" id="userChip"></span>
       <span class="chip" id="statusChip">En línea</span>
       <button class="btn btn-outline btn-sm hide" id="installBtn">Instalar app</button>
       <div class="dropdown" id="menu">
@@ -228,11 +229,27 @@
           </span>
           Mai<span>Cars</span>
         </div>
-        <p class="muted" style="text-align:center; margin:6px 0 18px">Ingresa la contraseña para acceder a tu inventario</p>
-        <div class="field"><label>Contraseña</label><input id="login_password" type="password" placeholder="••••••••" autocomplete="current-password"></div>
+        <p class="muted" style="text-align:center; margin:6px 0 18px">Ingresa tu correo y contraseña para acceder a tu inventario</p>
+        <div class="field"><label>Correo</label><input id="login_email" type="email" placeholder="tu@correo.com" autocomplete="username"></div>
+        <div class="field" style="margin-top:12px"><label>Contraseña</label><input id="login_password" type="password" placeholder="••••••••" autocomplete="current-password"></div>
         <button class="btn btn-block" id="login_submit" style="margin-top:14px">Ingresar</button>
         <p class="faint" id="login_error" style="text-align:center; margin-top:10px; min-height:1em; color:var(--danger)"></p>
         <button class="btn btn-outline btn-block btn-sm" id="login_forgot" style="margin-top:4px">¿Olvidaste tu contraseña?</button>
+        <button class="btn btn-outline btn-block btn-sm" id="login_goto_register" style="margin-top:8px">Crear cuenta nueva</button>
+      </div>
+    </section>
+
+    <!-- Crear cuenta -->
+    <section id="view-register" class="hide" aria-label="Crear cuenta" style="min-height:calc(100vh - 140px); display:grid; place-items:center">
+      <div class="card" style="max-width:360px; width:100%">
+        <h2 style="text-align:center; margin-bottom:6px">Crear cuenta</h2>
+        <p class="muted" style="text-align:center; margin:6px 0 18px">Regístrate para gestionar tu propio inventario</p>
+        <div class="field"><label>Nombre</label><input id="register_nombre" type="text" placeholder="Tu nombre" autocomplete="name"></div>
+        <div class="field" style="margin-top:12px"><label>Correo</label><input id="register_email" type="email" placeholder="tu@correo.com" autocomplete="username"></div>
+        <div class="field" style="margin-top:12px"><label>Contraseña</label><input id="register_password" type="password" placeholder="Mínimo 8 caracteres" autocomplete="new-password"></div>
+        <button class="btn btn-block" id="register_submit" style="margin-top:14px">Crear cuenta</button>
+        <p class="faint" id="register_error" style="text-align:center; margin-top:10px; min-height:1em; color:var(--danger)"></p>
+        <button class="btn btn-outline btn-block btn-sm" id="register_goto_login" style="margin-top:4px">Ya tengo cuenta</button>
       </div>
     </section>
 
@@ -241,7 +258,7 @@
       <div class="card" style="max-width:360px; width:100%">
         <h2 style="text-align:center; margin-bottom:6px">Nueva contraseña</h2>
         <p class="muted" style="text-align:center; margin:6px 0 18px">Elige una nueva contraseña para MaiCars</p>
-        <div class="field"><label>Nueva contraseña</label><input id="reset_password" type="password" placeholder="Mínimo 6 caracteres" autocomplete="new-password"></div>
+        <div class="field"><label>Nueva contraseña</label><input id="reset_password" type="password" placeholder="Mínimo 8 caracteres" autocomplete="new-password"></div>
         <div class="field" style="margin-top:12px"><label>Confirmar contraseña</label><input id="reset_password2" type="password" placeholder="Repite la contraseña" autocomplete="new-password"></div>
         <button class="btn btn-block" id="reset_submit" style="margin-top:14px">Guardar nueva contraseña</button>
         <p class="faint" id="reset_error" style="text-align:center; margin-top:10px; min-height:1em; color:var(--danger)"></p>
@@ -542,16 +559,18 @@
     $('#m_agregar').addEventListener('click', () => { menu.classList.remove('open'); resetForm(); show('form'); });
     $('#m_logout').addEventListener('click', async () => {
       menu.classList.remove('open');
-      try{ await fetch('/api/logout', { method:'POST' }); } catch(e){}
+      try{ await fetch('/api/auth-logout', { method:'POST' }); } catch(e){}
+      $('#userChip').classList.add('hide');
       show('login');
       toast('Sesión cerrada');
     });
 
-    const views = { login: $('#view-login'), reset: $('#view-reset'), form: $('#view-form'), inventario: $('#view-inventario'), detalle: $('#view-detalle'), vendidos: $('#view-vendidos') };
+    const AUTH_VIEWS = ['login', 'register', 'reset'];
+    const views = { login: $('#view-login'), register: $('#view-register'), reset: $('#view-reset'), form: $('#view-form'), inventario: $('#view-inventario'), detalle: $('#view-detalle'), vendidos: $('#view-vendidos') };
     function show(viewName){
       Object.values(views).forEach(v => v.classList.add('hide'));
       views[viewName].classList.remove('hide');
-      $('.app-actions').classList.toggle('hide', viewName === 'login' || viewName === 'reset');
+      $('.app-actions').classList.toggle('hide', AUTH_VIEWS.includes(viewName));
       window.scrollTo({top:0, behavior:'smooth'});
     }
 
@@ -1024,39 +1043,81 @@
     async function checkSession(){
       try{
         const res = await fetch('/api/session');
-        if(!res.ok) return false;
+        if(!res.ok) return null;
         const data = await res.json();
-        return !!data.authenticated;
-      } catch(e){ return false; }
+        return data.authenticated ? data.user : null;
+      } catch(e){ return null; }
     }
-    function startApp(){
+    function showUserChip(user){
+      const chip = $('#userChip');
+      if(!user){ chip.classList.add('hide'); return; }
+      chip.textContent = user.nombre ? `Hola, ${user.nombre}` : user.email;
+      chip.classList.remove('hide');
+    }
+    function startApp(user){
+      showUserChip(user || null);
       loadInventario();
       show('inventario');
       checkLegacyMigration();
     }
     async function doLogin(){
-      const input = $('#login_password');
-      const pass = input.value;
-      if(!pass){ shake(input); return; }
+      const emailInput = $('#login_email');
+      const passInput = $('#login_password');
+      const email = emailInput.value.trim();
+      const pass = passInput.value;
+      if(!email){ shake(emailInput); return; }
+      if(!pass){ shake(passInput); return; }
       const btn = $('#login_submit'); btn.disabled = true;
       $('#login_error').textContent = '';
       try{
-        const res = await fetch('/api/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ password: pass }) });
+        const res = await fetch('/api/auth-login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ email, password: pass }) });
         if(!res.ok){
-          $('#login_error').textContent = 'Contraseña incorrecta.';
-          shake(input);
-          input.value = '';
-          input.focus();
+          $('#login_error').textContent = 'Correo o contraseña incorrectos.';
+          shake(passInput);
+          passInput.value = '';
+          passInput.focus();
           return;
         }
-        input.value = '';
-        startApp();
+        passInput.value = '';
+        const user = await checkSession();
+        startApp(user);
       } catch(e){
         $('#login_error').textContent = 'No se pudo conectar con el servidor.';
       } finally{ btn.disabled = false; }
     }
     $('#login_submit').addEventListener('click', doLogin);
     $('#login_password').addEventListener('keydown', (e) => { if(e.key === 'Enter') doLogin(); });
+    $('#login_email').addEventListener('keydown', (e) => { if(e.key === 'Enter') $('#login_password').focus(); });
+
+    $('#login_goto_register').addEventListener('click', () => { show('register'); $('#register_nombre').focus(); });
+    $('#register_goto_login').addEventListener('click', () => { show('login'); $('#login_email').focus(); });
+
+    async function doRegister(){
+      const nombreInput = $('#register_nombre');
+      const emailInput = $('#register_email');
+      const passInput = $('#register_password');
+      const nombre = nombreInput.value.trim();
+      const email = emailInput.value.trim();
+      const pass = passInput.value;
+      $('#register_error').textContent = '';
+      if(!email || !email.includes('@')){ shake(emailInput); return; }
+      if(!pass || pass.length < 8){ shake(passInput); $('#register_error').textContent = 'La contraseña debe tener al menos 8 caracteres.'; return; }
+      const btn = $('#register_submit'); btn.disabled = true;
+      try{
+        const res = await fetch('/api/auth-register', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ email, password: pass, nombre }) });
+        if(!res.ok){
+          const t = await res.text().catch(()=> '');
+          $('#register_error').textContent = t || 'No se pudo crear la cuenta.';
+          return;
+        }
+        const user = await checkSession();
+        toast('Cuenta creada. ¡Bienvenido!');
+        startApp(user);
+      } catch(e){
+        $('#register_error').textContent = 'No se pudo conectar con el servidor.';
+      } finally{ btn.disabled = false; }
+    }
+    $('#register_submit').addEventListener('click', doRegister);
 
     function forgotPasswordModal(){
       return new Promise(resolve => {
@@ -1094,7 +1155,7 @@
         const p1 = $('#reset_password').value;
         const p2 = $('#reset_password2').value;
         $('#reset_error').textContent = '';
-        if(!p1 || p1.length < 6){ shake($('#reset_password')); $('#reset_error').textContent = 'La contraseña debe tener al menos 6 caracteres.'; return; }
+        if(!p1 || p1.length < 8){ shake($('#reset_password')); $('#reset_error').textContent = 'La contraseña debe tener al menos 8 caracteres.'; return; }
         if(p1 !== p2){ shake($('#reset_password2')); $('#reset_error').textContent = 'Las contraseñas no coinciden.'; return; }
         const btn = $('#reset_submit'); btn.disabled = true;
         try{
@@ -1107,7 +1168,7 @@
           history.replaceState(null, '', location.pathname);
           toast('Contraseña actualizada. Ya puedes iniciar sesión.');
           show('login');
-          $('#login_password').focus();
+          $('#login_email').focus();
         } catch(e){
           $('#reset_error').textContent = 'No se pudo conectar con el servidor.';
         } finally{ btn.disabled = false; }
@@ -1122,9 +1183,9 @@
         wireResetForm(resetToken);
         return;
       }
-      const authed = await checkSession();
-      if(authed){ startApp(); }
-      else { show('login'); $('#login_password').focus(); }
+      const user = await checkSession();
+      if(user){ startApp(user); }
+      else { show('login'); $('#login_email').focus(); }
     })();
     if('serviceWorker' in navigator){
       window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(console.warn); });

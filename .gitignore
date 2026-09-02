@@ -3,3 +3,6 @@
 
 # Dependencies
 node_modules
+
+# Respaldos locales de la base de datos (contienen hash de contraseña y datos reales)
+backups
