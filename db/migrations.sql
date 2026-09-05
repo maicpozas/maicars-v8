@@ -77,6 +77,15 @@ ALTER TABLE vendidos ADD COLUMN IF NOT EXISTS user_id TEXT REFERENCES users(id);
 CREATE INDEX IF NOT EXISTS idx_inventario_user ON inventario(user_id);
 CREATE INDEX IF NOT EXISTS idx_vendidos_user ON vendidos(user_id);
 
+-- Si alguna vez se borra un usuario, sus vehículos/ventas se borran
+-- con él en vez de bloquear el DELETE por llave foránea (gastos y
+-- vendidos_gastos ya tenían CASCADE hacia inventario/vendidos, así
+-- que esto cierra la cadena completa).
+ALTER TABLE inventario DROP CONSTRAINT IF EXISTS inventario_user_id_fkey;
+ALTER TABLE inventario ADD CONSTRAINT inventario_user_id_fkey FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+ALTER TABLE vendidos DROP CONSTRAINT IF EXISTS vendidos_user_id_fkey;
+ALTER TABLE vendidos ADD CONSTRAINT vendidos_user_id_fkey FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+
 -- fecha_compra nueva, nullable por ahora (se completa con
 -- db/migrate-fecha-compra.js antes de la fase de finalize)
 ALTER TABLE inventario ADD COLUMN IF NOT EXISTS fecha_compra DATE;
