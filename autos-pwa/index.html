@@ -381,6 +381,9 @@
     const $ = (sel, root=document) => root.querySelector(sel);
     const todayISODate = () => new Date().toISOString().slice(0,10);
     const fechaCL = (iso) => iso ? new Date(iso).toLocaleDateString('es-CL') : '';
+    const ESCAPE_HTML_MAP = { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' };
+    const escapeHtml = (str) => String(str ?? '').replace(/[&<>"']/g, c => ESCAPE_HTML_MAP[c]);
+    const isSafeImageSrc = (src) => typeof src === 'string' && (/^https?:\/\//.test(src) || /^data:image\/(png|jpe?g|webp|gif);base64,/.test(src));
     const diasEntre = (desdeISO, hastaISO) => Math.floor((new Date(hastaISO) - new Date(desdeISO)) / 86400000);
     function calcularMargenPromedio(vendidos){
       if(!vendidos.length) return 0;
@@ -1130,14 +1133,14 @@
       }
       tbody.innerHTML = users.map(u => `
         <tr>
-          <td>${u.email}</td>
-          <td>${u.nombre || '—'}</td>
+          <td>${escapeHtml(u.email)}</td>
+          <td>${u.nombre ? escapeHtml(u.nombre) : '—'}</td>
           <td>
             <div class="row" style="gap:6px; flex-wrap:nowrap">
-              <select data-email="${u.email}" class="admin-plan-select">
+              <select data-email="${escapeHtml(u.email)}" class="admin-plan-select">
                 ${['free','pro','owner'].map(p => `<option value="${p}" ${p===u.plan?'selected':''}>${p}</option>`).join('')}
               </select>
-              ${u.plan === 'pro' ? `<button class="btn btn-outline btn-sm" data-action="renovar" data-email="${u.email}" style="white-space:nowrap">Renovar 30 días</button>` : ''}
+              ${u.plan === 'pro' ? `<button class="btn btn-outline btn-sm" data-action="renovar" data-email="${escapeHtml(u.email)}" style="white-space:nowrap">Renovar 30 días</button>` : ''}
             </div>
           </td>
           <td>${u.plan === 'pro' && u.plan_expires_at ? fechaCL(u.plan_expires_at) : '—'}</td>
