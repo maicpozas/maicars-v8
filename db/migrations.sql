@@ -20,6 +20,11 @@ CREATE TABLE IF NOT EXISTS users (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
+-- NULL = sin vencimiento (free/owner siempre; pro lo lleva mientras
+-- esté vigente). Se limpia solo cuando el plan pro vence (ver
+-- netlify/functions/lib/plans.js).
+ALTER TABLE users ADD COLUMN IF NOT EXISTS plan_expires_at TIMESTAMPTZ;
+
 -- plan solo acepta estos tres valores (DROP+ADD porque Postgres no
 -- soporta "ADD CONSTRAINT IF NOT EXISTS"; así queda idempotente).
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_plan_check;

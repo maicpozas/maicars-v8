@@ -16,7 +16,8 @@ export default async (req) => {
     const email = normalizeEmail(rawEmail);
     if (!email || !PLANES_VALIDOS.includes(plan)) return new Response('Datos inválidos', { status: 400 });
 
-    const rows = await sql`UPDATE users SET plan = ${plan} WHERE email = ${email} RETURNING id`;
+    const expiresAt = plan === 'pro' ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() : null;
+    const rows = await sql`UPDATE users SET plan = ${plan}, plan_expires_at = ${expiresAt} WHERE email = ${email} RETURNING id`;
     if (rows.length === 0) return new Response('Usuario no encontrado', { status: 404 });
     return Response.json({ ok: true });
   } catch (e) {

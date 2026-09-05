@@ -1,5 +1,6 @@
 import { neon } from '@netlify/neon';
 import { isAuthenticated } from './lib/auth.js';
+import { expireDuePlans } from './lib/plans.js';
 
 export default async (req) => {
   const userId = isAuthenticated(req);
@@ -10,6 +11,7 @@ export default async (req) => {
     if (!id || !marca || !modelo || !anio || !compra) return new Response('Faltan campos', { status: 400 });
     const fechaCompra = fecha_compra || new Date().toISOString().slice(0, 10);
     const sql = neon();
+    await expireDuePlans(sql);
     const [user] = await sql`SELECT plan FROM users WHERE id = ${userId}`;
     if (user?.plan === 'free') {
       const [{ n }] = await sql`SELECT COUNT(*)::int AS n FROM inventario WHERE user_id = ${userId}`;

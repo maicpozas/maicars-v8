@@ -1,5 +1,6 @@
 import { neon } from '@netlify/neon';
 import { isAuthenticated } from './lib/auth.js';
+import { expireDuePlans } from './lib/plans.js';
 
 export default async (req) => {
   const userId = isAuthenticated(req);
@@ -9,8 +10,9 @@ export default async (req) => {
     const [me] = await sql`SELECT plan FROM users WHERE id = ${userId}`;
     if (me?.plan !== 'owner') return new Response('No autorizado', { status: 403 });
 
+    await expireDuePlans(sql);
     const rows = await sql`
-      SELECT u.email, u.nombre, u.plan, u.created_at,
+      SELECT u.email, u.nombre, u.plan, u.plan_expires_at, u.created_at,
              COALESCE(inv.n, 0) AS activos,
              COALESCE(ven.n, 0) AS vendidos
       FROM users u

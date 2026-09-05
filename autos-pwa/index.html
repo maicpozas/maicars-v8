@@ -335,11 +335,17 @@
     <!-- Administración (solo owner) -->
     <section id="view-admin" class="hide" aria-label="Administración">
       <div class="card">
-        <h2 style="margin-bottom:14px">Administración de usuarios</h2>
+        <div class="row" style="justify-content:space-between; margin-bottom:14px">
+          <h2>Administración de usuarios</h2>
+        </div>
+        <div class="search-box" style="max-width:320px; margin-bottom:14px">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          <input id="admin-search" type="text" placeholder="Buscar por email o nombre...">
+        </div>
         <div style="overflow-x:auto">
           <table class="table">
             <thead>
-              <tr><th>Email</th><th>Nombre</th><th>Plan</th><th>Registro</th><th class="right">Activos</th><th class="right">Vendidos</th></tr>
+              <tr><th>Email</th><th>Nombre</th><th>Plan</th><th>Vence</th><th>Registro</th><th class="right">Activos</th><th class="right">Vendidos</th></tr>
             </thead>
             <tbody id="admin-users-body"></tbody>
           </table>
@@ -1103,27 +1109,38 @@
     $('#f_guardar').addEventListener('click', altaVehiculo);
 
     /* ===================== Administración (solo owner) ===================== */
+    let adminUsersCache = [];
     async function loadAdmin(){
       const tbody = $('#admin-users-body');
-      tbody.innerHTML = '<tr><td colspan="6" class="muted">Cargando...</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" class="muted">Cargando...</td></tr>';
       try{
-        const users = await api('/api/admin-users');
-        renderAdmin(users);
+        adminUsersCache = await api('/api/admin-users');
+        renderAdmin();
       } catch(e){
-        tbody.innerHTML = `<tr><td colspan="6" class="muted">No se pudo cargar la lista de usuarios: ${e.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="muted">No se pudo cargar la lista de usuarios: ${e.message}</td></tr>`;
       }
     }
-    function renderAdmin(users){
+    function renderAdmin(){
+      const q = ($('#admin-search').value || '').toLowerCase().trim();
+      const users = !q ? adminUsersCache : adminUsersCache.filter(u => `${u.email} ${u.nombre||''}`.toLowerCase().includes(q));
       const tbody = $('#admin-users-body');
+      if(users.length === 0){
+        tbody.innerHTML = `<tr><td colspan="7" class="muted">${adminUsersCache.length===0 ? 'No hay usuarios.' : 'Sin resultados.'}</td></tr>`;
+        return;
+      }
       tbody.innerHTML = users.map(u => `
         <tr>
           <td>${u.email}</td>
           <td>${u.nombre || '—'}</td>
           <td>
-            <select data-email="${u.email}" class="admin-plan-select">
-              ${['free','pro','owner'].map(p => `<option value="${p}" ${p===u.plan?'selected':''}>${p}</option>`).join('')}
-            </select>
+            <div class="row" style="gap:6px; flex-wrap:nowrap">
+              <select data-email="${u.email}" class="admin-plan-select">
+                ${['free','pro','owner'].map(p => `<option value="${p}" ${p===u.plan?'selected':''}>${p}</option>`).join('')}
+              </select>
+              ${u.plan === 'pro' ? `<button class="btn btn-outline btn-sm" data-action="renovar" data-email="${u.email}" style="white-space:nowrap">Renovar 30 días</button>` : ''}
+            </div>
           </td>
+          <td>${u.plan === 'pro' && u.plan_expires_at ? fechaCL(u.plan_expires_at) : '—'}</td>
           <td>${fechaCL(u.created_at)}</td>
           <td class="right">${u.activos}</td>
           <td class="right">${u.vendidos}</td>
@@ -1137,11 +1154,23 @@
           try{
             await api('/api/admin-set-plan', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ email, plan }) });
             toast(`Plan de ${email} actualizado a ${plan}`);
+            loadAdmin();
           } catch(e){ toast('No se pudo actualizar: ' + e.message, 'error'); loadAdmin(); }
-          finally{ sel.disabled = false; }
+        });
+      });
+      tbody.querySelectorAll('[data-action="renovar"]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const email = btn.dataset.email;
+          btn.disabled = true;
+          try{
+            await api('/api/admin-set-plan', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ email, plan:'pro' }) });
+            toast(`Plan pro de ${email} renovado por 30 días más`);
+            loadAdmin();
+          } catch(e){ toast('No se pudo renovar: ' + e.message, 'error'); btn.disabled = false; }
         });
       });
     }
+    $('#admin-search').addEventListener('input', renderAdmin);
 
     /* ===================== Migración de datos locales (versión anterior) ===================== */
     async function checkLegacyMigration(){
