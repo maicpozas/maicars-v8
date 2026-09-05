@@ -20,6 +20,16 @@ CREATE TABLE IF NOT EXISTS users (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
+-- plan solo acepta estos tres valores (DROP+ADD porque Postgres no
+-- soporta "ADD CONSTRAINT IF NOT EXISTS"; así queda idempotente).
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_plan_check;
+ALTER TABLE users ADD CONSTRAINT users_plan_check CHECK (plan IN ('free','pro','owner'));
+
+-- Se reafirma en cada corrida de migrations.sql: si la base se
+-- recrea o se restaura desde un backup y esta fila vuelve a existir,
+-- queda marcada como owner sin depender de un script aparte.
+UPDATE users SET plan = 'owner' WHERE email = 'maic.pozas@gmail.com';
+
 -- Tablas de negocio (mismo DDL que antes, por si la base es nueva/vacía)
 CREATE TABLE IF NOT EXISTS inventario (
   id TEXT PRIMARY KEY,

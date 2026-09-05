@@ -210,6 +210,10 @@
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
             Agregar vehículo
           </button>
+          <button id="m_admin" class="hide">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z"/><path d="M12 8v4l3 3"/></svg>
+            Administración
+          </button>
           <button id="m_logout">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
             Cerrar sesión
@@ -327,6 +331,21 @@
       </div>
       <div class="grid autos" id="vendidos-grid"></div>
     </section>
+
+    <!-- Administración (solo owner) -->
+    <section id="view-admin" class="hide" aria-label="Administración">
+      <div class="card">
+        <h2 style="margin-bottom:14px">Administración de usuarios</h2>
+        <div style="overflow-x:auto">
+          <table class="table">
+            <thead>
+              <tr><th>Email</th><th>Nombre</th><th>Plan</th><th>Registro</th><th class="right">Activos</th><th class="right">Vendidos</th></tr>
+            </thead>
+            <tbody id="admin-users-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
   </main>
 
   <footer>
@@ -372,6 +391,10 @@
     ];
     const categoriaLabel = (value) => (CATEGORIAS_GASTO.find(c => c.value === value) || CATEGORIAS_GASTO[6]).label;
 
+    /* ===================== Edítame: mensaje y contacto para pasar a Pro ===================== */
+    const PRO_UPGRADE_MESSAGE = 'Alcanzaste el límite de 3 vehículos del plan gratuito. Escríbenos para pasar a Pro y seguir cargando vehículos sin límite.';
+    const WHATSAPP_UPGRADE_URL = 'https://wa.me/56900000000?text=Hola,%20quiero%20pasar%20a%20plan%20Pro%20en%20MaiCars';
+
     async function api(path, opts){
       let res;
       try{ res = await fetch(path, opts); }
@@ -383,7 +406,9 @@
       if(!res.ok){
         let text = await res.text().catch(()=> '');
         if(!text || /<\/?[a-z][\s\S]*>/i.test(text)) text = 'Error ' + res.status;
-        throw new Error(text.slice(0, 200));
+        const err = new Error(text.slice(0, 200));
+        err.status = res.status;
+        throw err;
       }
       const ct = res.headers.get('content-type') || '';
       return ct.includes('application/json') ? res.json() : null;
@@ -578,6 +603,17 @@
       });
     }
 
+    function showProUpgradeModal(){
+      showModal({
+        title:'Pasa a Pro',
+        bodyHTML: `<p class="muted" style="margin:0">${PRO_UPGRADE_MESSAGE}</p>`,
+        buttons: [
+          { label:'Cerrar', className:'btn btn-outline', onClick: () => {} },
+          { label:'Hablar por WhatsApp', className:'btn', onClick: () => { window.open(WHATSAPP_UPGRADE_URL, '_blank'); } }
+        ]
+      });
+    }
+
     /* ===================== Navegación ===================== */
     const menu = $('#menu');
     $('#menuBtn').addEventListener('click', (e) => { e.stopPropagation(); menu.classList.toggle('open'); });
@@ -586,16 +622,18 @@
     $('#m_inventario').addEventListener('click', () => { menu.classList.remove('open'); show('inventario'); loadInventario(); });
     $('#m_vendidos').addEventListener('click', () => { menu.classList.remove('open'); show('vendidos'); loadVendidos(); });
     $('#m_agregar').addEventListener('click', () => { menu.classList.remove('open'); resetForm(); show('form'); });
+    $('#m_admin').addEventListener('click', () => { menu.classList.remove('open'); show('admin'); loadAdmin(); });
     $('#m_logout').addEventListener('click', async () => {
       menu.classList.remove('open');
       try{ await fetch('/api/auth-logout', { method:'POST' }); } catch(e){}
       $('#userChip').classList.add('hide');
+      $('#m_admin').classList.add('hide');
       show('login');
       toast('Sesión cerrada');
     });
 
     const AUTH_VIEWS = ['login', 'register', 'reset'];
-    const views = { login: $('#view-login'), register: $('#view-register'), reset: $('#view-reset'), form: $('#view-form'), inventario: $('#view-inventario'), detalle: $('#view-detalle'), vendidos: $('#view-vendidos') };
+    const views = { login: $('#view-login'), register: $('#view-register'), reset: $('#view-reset'), form: $('#view-form'), inventario: $('#view-inventario'), detalle: $('#view-detalle'), vendidos: $('#view-vendidos'), admin: $('#view-admin') };
     function show(viewName){
       Object.values(views).forEach(v => v.classList.add('hide'));
       views[viewName].classList.remove('hide');
@@ -1049,7 +1087,10 @@
         await api('/api/inventario-add', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id, marca, modelo, anio, compra, fecha_compra, img }) });
         toast('Vehículo agregado al inventario');
         resetForm(); show('inventario'); loadInventario();
-      } catch(e){ toast('No se pudo guardar: ' + e.message, 'error'); }
+      } catch(e){
+        if(e.status === 403){ showProUpgradeModal(); }
+        else { toast('No se pudo guardar: ' + e.message, 'error'); }
+      }
       finally{ btn.disabled = false; }
     }
     function resetForm(){
@@ -1060,6 +1101,47 @@
     }
     $('#f_cancelar').addEventListener('click', () => { resetForm(); show('inventario'); });
     $('#f_guardar').addEventListener('click', altaVehiculo);
+
+    /* ===================== Administración (solo owner) ===================== */
+    async function loadAdmin(){
+      const tbody = $('#admin-users-body');
+      tbody.innerHTML = '<tr><td colspan="6" class="muted">Cargando...</td></tr>';
+      try{
+        const users = await api('/api/admin-users');
+        renderAdmin(users);
+      } catch(e){
+        tbody.innerHTML = `<tr><td colspan="6" class="muted">No se pudo cargar la lista de usuarios: ${e.message}</td></tr>`;
+      }
+    }
+    function renderAdmin(users){
+      const tbody = $('#admin-users-body');
+      tbody.innerHTML = users.map(u => `
+        <tr>
+          <td>${u.email}</td>
+          <td>${u.nombre || '—'}</td>
+          <td>
+            <select data-email="${u.email}" class="admin-plan-select">
+              ${['free','pro','owner'].map(p => `<option value="${p}" ${p===u.plan?'selected':''}>${p}</option>`).join('')}
+            </select>
+          </td>
+          <td>${fechaCL(u.created_at)}</td>
+          <td class="right">${u.activos}</td>
+          <td class="right">${u.vendidos}</td>
+        </tr>
+      `).join('');
+      tbody.querySelectorAll('.admin-plan-select').forEach(sel => {
+        sel.addEventListener('change', async () => {
+          const email = sel.dataset.email;
+          const plan = sel.value;
+          sel.disabled = true;
+          try{
+            await api('/api/admin-set-plan', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ email, plan }) });
+            toast(`Plan de ${email} actualizado a ${plan}`);
+          } catch(e){ toast('No se pudo actualizar: ' + e.message, 'error'); loadAdmin(); }
+          finally{ sel.disabled = false; }
+        });
+      });
+    }
 
     /* ===================== Migración de datos locales (versión anterior) ===================== */
     async function checkLegacyMigration(){
@@ -1123,6 +1205,7 @@
     }
     function startApp(user){
       showUserChip(user || null);
+      $('#m_admin').classList.toggle('hide', user?.plan !== 'owner');
       loadInventario();
       show('inventario');
       checkLegacyMigration();
