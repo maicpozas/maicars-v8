@@ -9,13 +9,9 @@ export default async (req) => {
     const auto_id = url.searchParams.get('auto_id');
     if (!auto_id) return new Response('Falta auto_id', { status: 400 });
     const sql = neon();
-    const rows = await sql`
-      SELECT g.id, g.auto_id, g.nombre, g.monto, g.fecha
-      FROM gastos g
-      JOIN inventario i ON g.auto_id = i.id
-      WHERE g.auto_id = ${auto_id} AND i.user_id = ${userId}
-      ORDER BY g.fecha DESC
-    `;
+    const [auto] = await sql`SELECT id FROM inventario WHERE id = ${auto_id} AND user_id = ${userId}`;
+    if (!auto) return new Response('Vehículo no encontrado', { status: 404 });
+    const rows = await sql`SELECT id, auto_id, nombre, monto, fecha FROM gastos WHERE auto_id = ${auto_id} ORDER BY fecha DESC`;
     return Response.json(rows);
   } catch (e) {
     return new Response(e.message || 'Error', { status: 500 });

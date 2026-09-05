@@ -10,7 +10,7 @@ async function sendEmail({ to, subject, html }) {
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
-      from: process.env.RESEND_FROM || 'MaiCars <onboarding@resend.dev>',
+      from: process.env.MAIL_FROM || 'MaiCars <onboarding@resend.dev>',
       to: [to],
       subject,
       html
@@ -23,11 +23,11 @@ async function sendEmail({ to, subject, html }) {
 }
 
 export default async (req) => {
-  const generic = () => Response.json({ ok: true, message: 'Si el correo es correcto, te enviamos instrucciones.' });
+  const generic = () => Response.json({ ok: true, message: 'Si el correo existe, recibirás un enlace.' });
+  if (req.method !== 'POST') return new Response('Method Not Allowed', { status: 405 });
   try {
-    if (req.method !== 'POST') return new Response('Method Not Allowed', { status: 405 });
     const { email: rawEmail } = await req.json();
-    const email = normalizeEmail(rawEmail);
+    const email = normalizeEmail(rawEmail); // destinatario: siempre el correo que envía el solicitante
     if (!email) return generic();
 
     const sql = neon();
@@ -40,17 +40,24 @@ export default async (req) => {
     await sql`INSERT INTO password_resets (token, user_id, expires_at) VALUES (${token}, ${user.id}, ${expiresAt})`;
     const origin = new URL(req.url).origin;
     const link = `${origin}/?reset=${token}`;
-    await sendEmail({
-      to: email,
-      subject: 'Restablecer contraseña de MaiCars',
-      html: `
-        <p>Recibimos una solicitud para restablecer la contraseña de tu cuenta de MaiCars.</p>
-        <p><a href="${link}">Haz clic aquí para elegir una nueva contraseña</a></p>
-        <p>Este enlace expira en 30 minutos. Si no fuiste tú, ignora este correo.</p>
-      `
-    });
+
+    try {
+      await sendEmail({
+        to: email,
+        subject: 'Restablecer contraseña de MaiCars',
+        html: `
+          <p>Recibimos una solicitud para restablecer la contraseña de tu cuenta de MaiCars.</p>
+          <p><a href="${link}">Haz clic aquí para elegir una nueva contraseña</a></p>
+          <p>Este enlace expira en 30 minutos. Si no fuiste tú, ignora este correo.</p>
+        `
+      });
+    } catch (sendErr) {
+      console.error('forgot-password: falló el envío con Resend para', email, '->', sendErr.message);
+    }
+
     return generic();
   } catch (e) {
-    return new Response(e.message || 'Error', { status: 500 });
+    console.error('forgot-password: error inesperado ->', e.message);
+    return generic();
   }
 }
