@@ -1,5 +1,6 @@
 import { neon } from '@netlify/neon';
 import { isAuthenticated } from './lib/auth.js';
+import { isValidId, isValidMoney } from './lib/validate.js';
 
 export default async (req) => {
   const userId = isAuthenticated(req);
@@ -7,7 +8,8 @@ export default async (req) => {
   try {
     if (req.method !== 'POST') return new Response('Method Not Allowed', { status: 405 });
     const { id, venta } = await req.json();
-    if (!id || !venta) return new Response('Faltan datos', { status: 400 });
+    if (!isValidId(id)) return new Response('id inválido', { status: 400 });
+    if (!isValidMoney(venta)) return new Response('Valor de venta inválido', { status: 400 });
     const sql = neon();
     const [auto] = await sql`SELECT * FROM inventario WHERE id = ${id} AND user_id = ${userId}`;
     if (!auto) return new Response('Auto no encontrado', { status: 404 });

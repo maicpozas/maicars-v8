@@ -384,6 +384,7 @@
     const ESCAPE_HTML_MAP = { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' };
     const escapeHtml = (str) => String(str ?? '').replace(/[&<>"']/g, c => ESCAPE_HTML_MAP[c]);
     const isSafeImageSrc = (src) => typeof src === 'string' && (/^https?:\/\//.test(src) || /^data:image\/(png|jpe?g|webp|gif);base64,/.test(src));
+    const safeImgSrc = (src) => isSafeImageSrc(src) ? escapeHtml(src) : PLACEHOLDER_IMG;
     const diasEntre = (desdeISO, hastaISO) => Math.floor((new Date(hastaISO) - new Date(desdeISO)) / 86400000);
     function calcularMargenPromedio(vendidos){
       if(!vendidos.length) return 0;
@@ -424,7 +425,8 @@
     }
 
     function csvEscape(v){
-      const s = String(v ?? '');
+      let s = String(v ?? '');
+      if(/^[=+\-@]/.test(s)) s = "'" + s; // evita que Excel/Sheets interprete el valor como fórmula
       return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
     }
 
@@ -508,7 +510,7 @@
         showModal({
           title: initial ? 'Editar gasto' : 'Agregar gasto',
           bodyHTML: `
-            <div class="field"><label>Nombre del gasto *</label><input id="m_nombre" type="text" placeholder="Ej: Mecánica, lavado, papeles" value="${initial?.nombre ? initial.nombre.replace(/"/g,'&quot;') : ''}"></div>
+            <div class="field"><label>Nombre del gasto *</label><input id="m_nombre" type="text" placeholder="Ej: Mecánica, lavado, papeles" value="${initial?.nombre ? escapeHtml(initial.nombre) : ''}"></div>
             <div class="field"><label>Categoría</label>
               <select id="m_categoria">
                 ${CATEGORIAS_GASTO.map(c => `<option value="${c.value}" ${c.value === categoriaInicial ? 'selected' : ''}>${c.label}</option>`).join('')}
@@ -581,15 +583,15 @@
           title:'Editar vehículo',
           bodyHTML: `
             <div class="form-row">
-              <div class="field"><label>Marca *</label><input id="m_marca" type="text" value="${(auto.marca||'').replace(/"/g,'&quot;')}"></div>
-              <div class="field"><label>Modelo *</label><input id="m_modelo" type="text" value="${(auto.modelo||'').replace(/"/g,'&quot;')}"></div>
+              <div class="field"><label>Marca *</label><input id="m_marca" type="text" value="${escapeHtml(auto.marca||'')}"></div>
+              <div class="field"><label>Modelo *</label><input id="m_modelo" type="text" value="${escapeHtml(auto.modelo||'')}"></div>
             </div>
             <div class="form-row">
               <div class="field"><label>Año *</label><input id="m_anio" type="number" min="1950" max="2099" value="${auto.anio}"></div>
               <div class="field"><label>Valor de compra (CLP) *</label><input id="m_compra" type="number" min="0" step="1" value="${auto.compra ?? ''}"></div>
             </div>
             <div class="field"><label>Fecha de compra *</label><input id="m_fecha_compra" type="date" value="${auto.fecha_compra ? String(auto.fecha_compra).slice(0,10) : todayISODate()}"></div>
-            <div class="field"><label>URL de imagen</label><input id="m_img" type="url" value="${(auto.img||'').replace(/"/g,'&quot;')}" placeholder="https://..."></div>
+            <div class="field"><label>URL de imagen</label><input id="m_img" type="url" value="${escapeHtml(auto.img||'')}" placeholder="https://..."></div>
           `,
           buttons: [
             { label:'Cancelar', className:'btn btn-outline', onClick: () => finish(null) },
@@ -789,8 +791,8 @@
         const card = document.createElement('article'); card.className = 'auto-card';
         const dias = auto.fecha_compra ? diasEntre(auto.fecha_compra, todayISODate()) : null;
         card.innerHTML = `
-          <img class="thumb" src="${auto.img || PLACEHOLDER_IMG}" alt="${auto.marca} ${auto.modelo}">
-          <div class="title">${auto.marca} ${auto.modelo}</div>
+          <img class="thumb" src="${safeImgSrc(auto.img)}" alt="${escapeHtml(auto.marca)} ${escapeHtml(auto.modelo)}">
+          <div class="title">${escapeHtml(auto.marca)} ${escapeHtml(auto.modelo)}</div>
           <div class="muted">Año ${auto.anio}</div>
           ${dias != null ? `<div class="muted">${dias} día(s) en stock</div>` : ''}
           <div class="price-tag">Compra ${fmt(auto.compra)}</div>
@@ -841,10 +843,10 @@
               <button class="btn btn-outline btn-sm" id="d_volver">← Volver</button>
               <span class="pill">En inventario</span>
             </div>
-            <img class="detail-hero" src="${auto.img || PLACEHOLDER_IMG}" alt="${auto.marca} ${auto.modelo}">
+            <img class="detail-hero" src="${safeImgSrc(auto.img)}" alt="${escapeHtml(auto.marca)} ${escapeHtml(auto.modelo)}">
             <div class="row" style="justify-content:space-between; align-items:flex-start; margin-top:16px">
               <div>
-                <h2 style="margin-bottom:2px">${auto.marca} ${auto.modelo}</h2>
+                <h2 style="margin-bottom:2px">${escapeHtml(auto.marca)} ${escapeHtml(auto.modelo)}</h2>
                 <div class="muted">Año ${auto.anio}</div>
               </div>
               <button class="btn btn-outline btn-sm" id="d_editar">Editar</button>
@@ -868,7 +870,7 @@
                 <tbody>
                   ${gastos.map(g => `
                     <tr>
-                      <td>${g.nombre}</td>
+                      <td>${escapeHtml(g.nombre)}</td>
                       <td>${categoriaLabel(g.categoria)}</td>
                       <td class="right">${fmt(g.monto)}</td>
                       <td class="right">${fechaCL(g.fecha)}</td>
@@ -1012,8 +1014,8 @@
         const gastosDetalle = vendidosCache.detalle[v.id] || [];
         const card = document.createElement('article'); card.className = 'auto-card';
         card.innerHTML = `
-          <img class="thumb thumb-sold" src="${v.img || PLACEHOLDER_IMG}" alt="${v.marca} ${v.modelo}">
-          <div class="title">${v.marca} ${v.modelo}</div>
+          <img class="thumb thumb-sold" src="${safeImgSrc(v.img)}" alt="${escapeHtml(v.marca)} ${escapeHtml(v.modelo)}">
+          <div class="title">${escapeHtml(v.marca)} ${escapeHtml(v.modelo)}</div>
           <div class="muted">Año ${v.anio}</div>
           <div class="price-tag" style="color:var(--success);background:rgba(87,227,137,.12)">Ganancia ${fmt(v.ganancia)}</div>
           <div class="row" style="justify-content:center; margin-top:14px">
@@ -1038,7 +1040,7 @@
                 <table class="table">
                   <thead><tr><th>Nombre</th><th class="right">Monto</th><th class="right">Fecha</th></tr></thead>
                   <tbody>
-                    ${gastosDetalle.map(g => `<tr><td>${g.nombre}</td><td class="right">${fmt(g.monto)}</td><td class="right">${fechaCL(g.fecha)}</td></tr>`).join('')}
+                    ${gastosDetalle.map(g => `<tr><td>${escapeHtml(g.nombre)}</td><td class="right">${fmt(g.monto)}</td><td class="right">${fechaCL(g.fecha)}</td></tr>`).join('')}
                   </tbody>
                 </table>` : '<p class="muted">Sin gastos registrados.</p>'}
             </div>

@@ -25,6 +25,16 @@ CREATE TABLE IF NOT EXISTS users (
 -- netlify/functions/lib/plans.js).
 ALTER TABLE users ADD COLUMN IF NOT EXISTS plan_expires_at TIMESTAMPTZ;
 
+-- Registro de intentos (login, registro, recuperación de contraseña)
+-- para limitar fuerza bruta / spam. Ver netlify/functions/lib/ratelimit.js.
+CREATE TABLE IF NOT EXISTS rate_limits (
+  id TEXT PRIMARY KEY,
+  action TEXT NOT NULL,
+  identifier TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_rate_limits_lookup ON rate_limits(action, identifier, created_at);
+
 -- plan solo acepta estos tres valores (DROP+ADD porque Postgres no
 -- soporta "ADD CONSTRAINT IF NOT EXISTS"; así queda idempotente).
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_plan_check;

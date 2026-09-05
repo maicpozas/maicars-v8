@@ -1,6 +1,7 @@
 import { neon } from '@netlify/neon';
 import { isAuthenticated } from './lib/auth.js';
 import { expireDuePlans } from './lib/plans.js';
+import { isValidId, isValidText, isValidYear, isValidMoney, isValidImg } from './lib/validate.js';
 
 export default async (req) => {
   const userId = isAuthenticated(req);
@@ -8,7 +9,11 @@ export default async (req) => {
   try {
     if (req.method !== 'POST') return new Response('Method Not Allowed', { status: 405 });
     const { id, marca, modelo, anio, compra, img, fecha_compra } = await req.json();
-    if (!id || !marca || !modelo || !anio || !compra) return new Response('Faltan campos', { status: 400 });
+    if (!isValidId(id)) return new Response('id inválido', { status: 400 });
+    if (!isValidText(marca) || !isValidText(modelo)) return new Response('Marca/modelo inválidos', { status: 400 });
+    if (!isValidYear(anio)) return new Response('Año inválido', { status: 400 });
+    if (!isValidMoney(compra)) return new Response('Costo de compra inválido', { status: 400 });
+    if (!isValidImg(img)) return new Response('Imagen inválida', { status: 400 });
     const fechaCompra = fecha_compra || new Date().toISOString().slice(0, 10);
     const sql = neon();
     await expireDuePlans(sql);

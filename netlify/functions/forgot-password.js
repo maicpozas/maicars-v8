@@ -1,6 +1,7 @@
 import { neon } from '@netlify/neon';
 import crypto from 'node:crypto';
 import { normalizeEmail } from './lib/auth.js';
+import { checkRateLimit, recordAttempt } from './lib/ratelimit.js';
 
 async function sendEmail({ to, subject, html }) {
   const res = await fetch('https://api.resend.com/emails', {
@@ -31,6 +32,14 @@ export default async (req) => {
     if (!email) return generic();
 
     const sql = neon();
+
+    // Límite por correo: evita saturar la bandeja de un tercero o
+    // agotar la cuota de envío. Se responde igual (genérico) esté o
+    // no limitado, para no filtrar información.
+    const withinLimit = await checkRateLimit(sql, 'forgot_password', email, { maxAttempts: 3, windowMinutes: 15 });
+    if (!withinLimit) return generic();
+    await recordAttempt(sql, 'forgot_password', email);
+
     const [user] = await sql`SELECT id FROM users WHERE email = ${email}`;
     if (!user) return generic(); // no revela si el correo existe o no
 

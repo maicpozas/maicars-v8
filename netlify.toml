@@ -7,3 +7,13 @@
   from = "/api/*"
   to = "/.netlify/functions/:splat"
   status = 200
+
+# Cabeceras de seguridad. La app es un único HTML con <style>/<script>
+# inline y sin recursos externos, por eso script-src/style-src
+# necesitan 'unsafe-inline' — el resto queda restringido a 'self'.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'self'"
+    X-Frame-Options = "SAMEORIGIN"
+    Referrer-Policy = "strict-origin-when-cross-origin"

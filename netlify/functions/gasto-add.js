@@ -1,6 +1,7 @@
 import { neon } from '@netlify/neon';
 import { isAuthenticated } from './lib/auth.js';
 import { normalizeCategoria } from './lib/categorias.js';
+import { isValidId, isValidText, isValidMoney } from './lib/validate.js';
 
 export default async (req) => {
   const userId = isAuthenticated(req);
@@ -8,7 +9,9 @@ export default async (req) => {
   try {
     if (req.method !== 'POST') return new Response('Method Not Allowed', { status: 405 });
     const { auto_id, nombre, monto, fechaISO, categoria } = await req.json();
-    if (!auto_id || !nombre || !monto) return new Response('Faltan datos', { status: 400 });
+    if (!isValidId(auto_id)) return new Response('Vehículo inválido', { status: 400 });
+    if (!isValidText(nombre)) return new Response('Nombre inválido', { status: 400 });
+    if (!isValidMoney(monto)) return new Response('Monto inválido', { status: 400 });
     const sql = neon();
     const [auto] = await sql`SELECT id FROM inventario WHERE id = ${auto_id} AND user_id = ${userId}`;
     if (!auto) return new Response('Vehículo no encontrado', { status: 404 });
