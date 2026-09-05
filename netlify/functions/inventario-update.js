@@ -6,10 +6,10 @@ export default async (req) => {
   if (!userId) return new Response('No autorizado', { status: 401 });
   try {
     if (req.method !== 'POST') return new Response('Method Not Allowed', { status: 405 });
-    const { id, marca, modelo, anio, compra, img } = await req.json();
-    if (!id || !marca || !modelo || !anio || compra == null) return new Response('Faltan datos', { status: 400 });
+    const { id, marca, modelo, anio, compra, img, fecha_compra } = await req.json();
+    if (!id || !marca || !modelo || !anio || compra == null || !fecha_compra) return new Response('Faltan datos', { status: 400 });
     const sql = neon();
-    const rows = await sql`UPDATE inventario SET marca = ${marca}, modelo = ${modelo}, anio = ${anio}, compra = ${compra}, img = ${img ?? null} WHERE id = ${id} AND user_id = ${userId} RETURNING id`;
+    const rows = await sql`UPDATE inventario SET marca = ${marca}, modelo = ${modelo}, anio = ${anio}, compra = ${compra}, img = ${img ?? null}, fecha_compra = ${fecha_compra} WHERE id = ${id} AND user_id = ${userId} RETURNING id`;
     if (rows.length === 0) return new Response('No encontrado', { status: 404 });
     return Response.json({ ok: true });
   } catch (e) {

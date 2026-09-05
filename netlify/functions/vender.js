@@ -14,10 +14,10 @@ export default async (req) => {
     const gastos = await sql`SELECT * FROM gastos WHERE auto_id = ${id}`;
     const gastosTotal = gastos.reduce((a, g) => a + Number(g.monto || 0), 0);
     const ganancia = Number(venta) - Number(auto.compra || 0) - gastosTotal;
-    await sql`INSERT INTO vendidos (id, user_id, marca, modelo, anio, compra, gastos_total, venta, ganancia, fecha_venta, img) VALUES (${auto.id}, ${userId}, ${auto.marca}, ${auto.modelo}, ${auto.anio}, ${auto.compra}, ${gastosTotal}, ${venta}, ${ganancia}, ${new Date().toISOString()}, ${auto.img})`;
+    await sql`INSERT INTO vendidos (id, user_id, marca, modelo, anio, compra, gastos_total, venta, ganancia, fecha_venta, fecha_compra, img) VALUES (${auto.id}, ${userId}, ${auto.marca}, ${auto.modelo}, ${auto.anio}, ${auto.compra}, ${gastosTotal}, ${venta}, ${ganancia}, ${new Date().toISOString()}, ${auto.fecha_compra}, ${auto.img})`;
     for (const g of gastos) {
       const gid = crypto.randomUUID();
-      await sql`INSERT INTO vendidos_gastos (id, vendido_id, nombre, monto, fecha) VALUES (${gid}, ${auto.id}, ${g.nombre}, ${g.monto}, ${g.fecha})`;
+      await sql`INSERT INTO vendidos_gastos (id, vendido_id, nombre, monto, fecha, categoria) VALUES (${gid}, ${auto.id}, ${g.nombre}, ${g.monto}, ${g.fecha}, ${g.categoria})`;
     }
     await sql`DELETE FROM gastos WHERE auto_id = ${id}`;
     await sql`DELETE FROM inventario WHERE id = ${id} AND user_id = ${userId}`;

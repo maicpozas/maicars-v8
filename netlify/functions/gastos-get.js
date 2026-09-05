@@ -11,7 +11,7 @@ export default async (req) => {
     const sql = neon();
     const [auto] = await sql`SELECT id FROM inventario WHERE id = ${auto_id} AND user_id = ${userId}`;
     if (!auto) return new Response('Vehículo no encontrado', { status: 404 });
-    const rows = await sql`SELECT id, auto_id, nombre, monto, fecha FROM gastos WHERE auto_id = ${auto_id} ORDER BY fecha DESC`;
+    const rows = await sql`SELECT id, auto_id, nombre, monto, fecha, categoria FROM gastos WHERE auto_id = ${auto_id} ORDER BY fecha DESC`;
     return Response.json(rows);
   } catch (e) {
     return new Response(e.message || 'Error', { status: 500 });

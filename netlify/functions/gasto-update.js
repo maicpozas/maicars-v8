@@ -1,16 +1,17 @@
 import { neon } from '@netlify/neon';
 import { isAuthenticated } from './lib/auth.js';
+import { normalizeCategoria } from './lib/categorias.js';
 
 export default async (req) => {
   const userId = isAuthenticated(req);
   if (!userId) return new Response('No autorizado', { status: 401 });
   try {
     if (req.method !== 'POST') return new Response('Method Not Allowed', { status: 405 });
-    const { id, nombre, monto, fechaISO } = await req.json();
+    const { id, nombre, monto, fechaISO, categoria } = await req.json();
     if (!id || !nombre || !monto) return new Response('Faltan datos', { status: 400 });
     const sql = neon();
     const rows = await sql`
-      UPDATE gastos SET nombre = ${nombre}, monto = ${monto}, fecha = ${fechaISO || new Date().toISOString()}
+      UPDATE gastos SET nombre = ${nombre}, monto = ${monto}, fecha = ${fechaISO || new Date().toISOString()}, categoria = ${normalizeCategoria(categoria)}
       WHERE id = ${id} AND auto_id IN (SELECT id FROM inventario WHERE user_id = ${userId})
       RETURNING id
     `;

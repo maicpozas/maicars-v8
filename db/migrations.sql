@@ -67,6 +67,19 @@ ALTER TABLE vendidos ADD COLUMN IF NOT EXISTS user_id TEXT REFERENCES users(id);
 CREATE INDEX IF NOT EXISTS idx_inventario_user ON inventario(user_id);
 CREATE INDEX IF NOT EXISTS idx_vendidos_user ON vendidos(user_id);
 
+-- fecha_compra nueva, nullable por ahora (se completa con
+-- db/migrate-fecha-compra.js antes de la fase de finalize)
+ALTER TABLE inventario ADD COLUMN IF NOT EXISTS fecha_compra DATE;
+ALTER TABLE vendidos ADD COLUMN IF NOT EXISTS fecha_compra DATE;
+
+-- categoria de gasto: lista fija reforzada con CHECK. Se puede agregar
+-- directo como NOT NULL DEFAULT porque Postgres rellena las filas
+-- existentes con el default al momento del ALTER.
+ALTER TABLE gastos ADD COLUMN IF NOT EXISTS categoria TEXT NOT NULL DEFAULT 'otros'
+  CHECK (categoria IN ('mecanica','carroceria','papeles','transporte','publicidad','comision','otros'));
+ALTER TABLE vendidos_gastos ADD COLUMN IF NOT EXISTS categoria TEXT NOT NULL DEFAULT 'otros'
+  CHECK (categoria IN ('mecanica','carroceria','papeles','transporte','publicidad','comision','otros'));
+
 -- app_config: se mantiene por compatibilidad (password_hash global queda inerte)
 CREATE TABLE IF NOT EXISTS app_config (
   key TEXT PRIMARY KEY,
@@ -86,8 +99,13 @@ CREATE TABLE password_resets (
 -- ==FINALIZE==
 -- A partir de aquí: SOLO ejecutar después de que
 -- db/migrate-existing-data.js haya asignado user_id a todas las
--- filas existentes de inventario y vendidos. Si se corre antes,
--- esto falla (columna NOT NULL con filas NULL existentes).
+-- filas existentes de inventario y vendidos, y de que
+-- db/migrate-fecha-compra.js haya asignado fecha_compra. Si se corre
+-- antes, esto falla (columna NOT NULL con filas NULL existentes).
 
 ALTER TABLE inventario ALTER COLUMN user_id SET NOT NULL;
 ALTER TABLE vendidos ALTER COLUMN user_id SET NOT NULL;
+
+ALTER TABLE inventario ALTER COLUMN fecha_compra SET NOT NULL;
+ALTER TABLE inventario ALTER COLUMN fecha_compra SET DEFAULT CURRENT_DATE;
+ALTER TABLE vendidos ALTER COLUMN fecha_compra SET NOT NULL;

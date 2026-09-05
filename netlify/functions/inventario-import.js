@@ -1,5 +1,6 @@
 import { neon } from '@netlify/neon';
 import { isAuthenticated } from './lib/auth.js';
+import { normalizeCategoria } from './lib/categorias.js';
 
 export default async (req) => {
   const userId = isAuthenticated(req);
@@ -13,11 +14,12 @@ export default async (req) => {
     for (const v of vehiculos) {
       if (!v.marca || !v.modelo || !v.anio || !v.compra) continue;
       const id = crypto.randomUUID();
-      await sql`INSERT INTO inventario (id, user_id, marca, modelo, anio, compra, img) VALUES (${id}, ${userId}, ${v.marca}, ${v.modelo}, ${v.anio}, ${v.compra}, ${v.img ?? null})`;
+      const fechaCompra = v.fecha_compra || new Date().toISOString().slice(0, 10);
+      await sql`INSERT INTO inventario (id, user_id, marca, modelo, anio, compra, img, fecha_compra) VALUES (${id}, ${userId}, ${v.marca}, ${v.modelo}, ${v.anio}, ${v.compra}, ${v.img ?? null}, ${fechaCompra})`;
       for (const g of (v.gastos || [])) {
         if (!g.nombre || !g.monto) continue;
         const gid = crypto.randomUUID();
-        await sql`INSERT INTO gastos (id, auto_id, nombre, monto, fecha) VALUES (${gid}, ${id}, ${g.nombre}, ${g.monto}, ${g.fecha || new Date().toISOString()})`;
+        await sql`INSERT INTO gastos (id, auto_id, nombre, monto, fecha, categoria) VALUES (${gid}, ${id}, ${g.nombre}, ${g.monto}, ${g.fecha || new Date().toISOString()}, ${normalizeCategoria(g.categoria)})`;
       }
       importados++;
     }
