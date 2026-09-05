@@ -2,6 +2,7 @@ import { neon } from '@netlify/neon';
 import { isAuthenticated, normalizeEmail } from './lib/auth.js';
 
 const PLANES_VALIDOS = ['free', 'pro', 'owner'];
+const OWNER_PROTEGIDO = 'maic.pozas@gmail.com'; // cuenta dueña de la app: su plan no se puede tocar desde este endpoint
 
 export default async (req) => {
   const userId = isAuthenticated(req);
@@ -15,6 +16,7 @@ export default async (req) => {
     const { email: rawEmail, plan } = await req.json();
     const email = normalizeEmail(rawEmail);
     if (!email || !PLANES_VALIDOS.includes(plan)) return new Response('Datos inválidos', { status: 400 });
+    if (email === OWNER_PROTEGIDO) return new Response('El plan de esta cuenta no se puede cambiar', { status: 403 });
 
     const expiresAt = plan === 'pro' ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() : null;
     const rows = await sql`UPDATE users SET plan = ${plan}, plan_expires_at = ${expiresAt} WHERE email = ${email} RETURNING id`;

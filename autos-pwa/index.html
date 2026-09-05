@@ -404,6 +404,7 @@
     /* ===================== Edítame: mensaje y contacto para pasar a Pro ===================== */
     const PRO_UPGRADE_MESSAGE = 'Alcanzaste el límite de 3 vehículos del plan gratuito. Escríbenos para pasar a Pro y seguir cargando vehículos sin límite.';
     const WHATSAPP_UPGRADE_URL = 'https://wa.me/56964963271?text=Hola,%20quiero%20pasar%20a%20plan%20Pro%20en%20MaiCars';
+    const ADMIN_PROTECTED_EMAIL = 'maic.pozas@gmail.com'; // esta cuenta no se puede modificar desde el panel de Administración
 
     async function api(path, opts){
       let res;
@@ -992,7 +993,7 @@
       el.innerHTML = `
         <div class="stat-tile"><span class="stat-label">Vendidos</span><span class="stat-value">${n}</span></div>
         <div class="stat-tile"><span class="stat-label">Ganancia total</span><span class="stat-value ${totalGanancia>=0?'positive':'negative'}">${fmt(totalGanancia)}</span></div>
-        <div class="stat-tile"><span class="stat-label">Ganancia promedio</span><span class="stat-value">${fmt(totalGanancia/n)}</span></div>
+        <div class="stat-tile"><span class="stat-label">Ganancia promedio</span><span class="stat-value ${(totalGanancia/n)>=0?'positive':'negative'}">${fmt(totalGanancia/n)}</span></div>
         <div class="stat-tile"><span class="stat-label">Margen promedio</span><span class="stat-value">${margenProm.toFixed(1)}%</span></div>
       `;
     }
@@ -1017,7 +1018,7 @@
           <img class="thumb thumb-sold" src="${safeImgSrc(v.img)}" alt="${escapeHtml(v.marca)} ${escapeHtml(v.modelo)}">
           <div class="title">${escapeHtml(v.marca)} ${escapeHtml(v.modelo)}</div>
           <div class="muted">Año ${v.anio}</div>
-          <div class="price-tag" style="color:var(--success);background:rgba(87,227,137,.12)">Ganancia ${fmt(v.ganancia)}</div>
+          <div class="price-tag" style="${v.ganancia >= 0 ? 'color:var(--success);background:rgba(87,227,137,.12)' : 'color:var(--danger);background:var(--danger-soft)'}">Ganancia ${fmt(v.ganancia)}</div>
           <div class="row" style="justify-content:center; margin-top:14px">
             <button class="btn btn-outline btn-sm" data-action="toggle" data-id="${v.id}">Ver venta</button>
             <button class="icon-btn danger" data-action="eliminar-vendido" data-id="${v.id}" aria-label="Eliminar registro">
@@ -1138,12 +1139,16 @@
           <td>${escapeHtml(u.email)}</td>
           <td>${u.nombre ? escapeHtml(u.nombre) : '—'}</td>
           <td>
-            <div class="row" style="gap:6px; flex-wrap:nowrap">
-              <select data-email="${escapeHtml(u.email)}" class="admin-plan-select">
-                ${['free','pro','owner'].map(p => `<option value="${p}" ${p===u.plan?'selected':''}>${p}</option>`).join('')}
-              </select>
-              ${u.plan === 'pro' ? `<button class="btn btn-outline btn-sm" data-action="renovar" data-email="${escapeHtml(u.email)}" style="white-space:nowrap">Renovar 30 días</button>` : ''}
-            </div>
+            ${u.email.toLowerCase() === ADMIN_PROTECTED_EMAIL ? `
+              <span class="pill" title="Esta cuenta no se puede modificar desde el panel">🔒 ${u.plan}</span>
+            ` : `
+              <div class="row" style="gap:6px; flex-wrap:nowrap">
+                <select data-email="${escapeHtml(u.email)}" class="admin-plan-select">
+                  ${['free','pro','owner'].map(p => `<option value="${p}" ${p===u.plan?'selected':''}>${p}</option>`).join('')}
+                </select>
+                ${u.plan === 'pro' ? `<button class="btn btn-outline btn-sm" data-action="renovar" data-email="${escapeHtml(u.email)}" style="white-space:nowrap">Renovar 30 días</button>` : ''}
+              </div>
+            `}
           </td>
           <td>${u.plan === 'pro' && u.plan_expires_at ? fechaCL(u.plan_expires_at) : '—'}</td>
           <td>${fechaCL(u.created_at)}</td>
